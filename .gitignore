@@ -2,5 +2,5 @@
 !*.c
 !*.cpp
 !*.h
-*README.md
-*Makefile
+!README.md
+!Makefile
