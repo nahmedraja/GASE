@@ -1,0 +1,6 @@
+*
+!*.c
+!*.cpp
+!*.h
+!README.md
+!Makefile
