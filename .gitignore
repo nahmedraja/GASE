@@ -1,6 +1,7 @@
 *
-!./src/*.c
-!./src/*.cpp
-!./src/*.h
-!./README.md
-!./Makefile
+!src/*.c
+!src/*.cpp
+!src/*.h
+!README.md
+!Makefile
+!LICENSE
