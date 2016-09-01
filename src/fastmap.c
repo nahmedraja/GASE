@@ -241,7 +241,7 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "Usage: bwa mem [options] <idxbase> <in1.fq> [in2.fq]\n\n");
 		fprintf(stderr, "Algorithm options:\n\n");
 		fprintf(stderr, "       -t INT        number of threads [%d]\n", opt->n_threads);
-		fprintf(stderr, "       -k INT        minimum seed length [%d]\n", opt->min_seed_len);
+		fprintf(stderr, "       -k INT        minimum seed length. For fixed length seeds seed_length = INT [%d]\n", opt->min_seed_len);
 		fprintf(stderr, "       -w INT        band width for banded alignment [%d]\n", opt->w);
 		//fprintf(stderr, "       -d INT        off-diagonal X-dropoff [%d]\n", opt->zdrop);
 		//fprintf(stderr, "       -r FLOAT      look for internal seeds inside a seed longer than {-k} * FLOAT [%g]\n", opt->split_factor);

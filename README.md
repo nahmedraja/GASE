@@ -1,4 +1,4 @@
-GASE - Generic Aligner for Seed and Extend
+GASE - Generic Aligner for *Seed-and-Extend*
 -----------------------------------------
 GASE is a DNA read aligner, developed for measuring the mapping accuracy and execution time of different combinations of seeding and extension techniques. GASE is implemented by extending BWA (version 0.7.13). Currently, GASE supports 4 kinds of seeding techniques:
 
@@ -15,10 +15,10 @@ Three different kind of extension techniques can be used:
 
 To compile GASE, run `make`. You may see a lot of warnings. These warning will be fixed in the future. To use GASE we first need to build the index by executing the following command:
 
-`./gase index <path to ref.fa>`
+`./gase index <ref.fa>`
 
 This commands builds the FMD index which is the same as the one used in BWA. To align DNA reads use the following command:
 
-`./gase aln <options> <path to ref.fa> <path to reads.fastq>`
+`./gase aln <options> <path to ref.fa> <reads.fastq>`
 
 To find all the available options type in `./gase aln`. Currently GASE is only tested with single ended reads. 
