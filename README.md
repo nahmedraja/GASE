@@ -22,3 +22,5 @@ This commands builds the FMD index which is the same as the one used in BWA. To 
 `gase gase_aln [options] <path to ref.fa> <reads.fastq>`
 
 To find all the available options type in `gase gase_aln`. Currently GASE is only tested with single ended reads. 
+
+Feel free to conatact Nauman Ahmed: n.ahmed@tudelft.nl for any issues or bugs.
