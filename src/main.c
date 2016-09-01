@@ -32,6 +32,7 @@ static int usage()
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Program: GASE (Generic Aligner for Seed-and-Extend)\n");
 	fprintf(stderr, "Version: %s\n", PACKAGE_VERSION);
+	fprintf(stderr, "GASE is an extension of BWA (version 0.7.13) which is developed by Heng Li.\n");
 	fprintf(stderr, "Contact: Nauman Ahmed <n.ahmed@tudelft.nl>\n\n");
 	fprintf(stderr, "Usage:   gase <command> [options]\n\n");
 	fprintf(stderr, "Command: index         index sequences in the FASTA format\n");
