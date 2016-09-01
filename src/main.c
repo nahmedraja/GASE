@@ -4,7 +4,7 @@
 #include "utils.h"
 
 #ifndef PACKAGE_VERSION
-#define PACKAGE_VERSION "0.7.13-r1126"
+#define PACKAGE_VERSION "0.1"
 #endif
 
 int bwa_fa2pac(int argc, char *argv[]);
@@ -30,13 +30,13 @@ int main_maxk(int argc, char *argv[]);
 static int usage()
 {
 	fprintf(stderr, "\n");
-	fprintf(stderr, "Program: bwa (alignment via Burrows-Wheeler transformation)\n");
+	fprintf(stderr, "Program: GASE (Generic Aligner for Seed and Extend)\n");
 	fprintf(stderr, "Version: %s\n", PACKAGE_VERSION);
-	fprintf(stderr, "Contact: Heng Li <lh3@sanger.ac.uk>\n\n");
-	fprintf(stderr, "Usage:   bwa <command> [options]\n\n");
+	fprintf(stderr, "Contact: Nauman Ahmed <n.ahmed@tudelft.nl>\n\n");
+	fprintf(stderr, "Usage:   gase <command> [options]\n\n");
 	fprintf(stderr, "Command: index         index sequences in the FASTA format\n");
-	fprintf(stderr, "         mem           BWA-MEM algorithm\n");
-	fprintf(stderr, "         fastmap       identify super-maximal exact matches\n");
+	fprintf(stderr, "         gase_aln           GASE algorithm\n");
+	/*fprintf(stderr, "         fastmap       identify super-maximal exact matches\n");
 	fprintf(stderr, "         pemerge       merge overlapping paired ends (EXPERIMENTAL)\n");
 	fprintf(stderr, "         aln           gapped/ungapped alignment\n");
 	fprintf(stderr, "         samse         generate alignment (single ended)\n");
@@ -48,13 +48,9 @@ static int usage()
 	fprintf(stderr, "         pac2bwt       generate BWT from PAC\n");
 	fprintf(stderr, "         pac2bwtgen    alternative algorithm for generating BWT\n");
 	fprintf(stderr, "         bwtupdate     update .bwt to the new format\n");
-	fprintf(stderr, "         bwt2sa        generate SA from BWT and Occ\n");
+	fprintf(stderr, "         bwt2sa        generate SA from BWT and Occ\n");*/
 	fprintf(stderr, "\n");
-	fprintf(stderr,
-"Note: To use BWA, you need to first index the genome with `bwa index'.\n"
-"      There are three alignment algorithms in BWA: `mem', `bwasw', and\n"
-"      `aln/samse/sampe'. If you are not sure which to use, try `bwa mem'\n"
-"      first. Please `man ./bwa.1' for the manual.\n\n");
+	fprintf(stderr, "Note: To use GASE, you need to first index the genome with `gase index'.\n\n");
 	return 1;
 }
 
@@ -86,7 +82,7 @@ int main(int argc, char *argv[])
 	else if (strcmp(argv[1], "shm") == 0) ret = main_shm(argc-1, argv+1);
 	else if (strcmp(argv[1], "pemerge") == 0) ret = main_pemerge(argc-1, argv+1);
 	else if (strcmp(argv[1], "maxk") == 0) ret = main_maxk(argc-1, argv+1);*/
-	else if (strcmp(argv[1], "aln") == 0) ret = gase_aln(argc-1, argv+1);
+	else if (strcmp(argv[1], "gase_aln") == 0) ret = gase_aln(argc-1, argv+1);
 	else {
 		fprintf(stderr, "[main] unrecognized command '%s'\n", argv[1]);
 		return 1;

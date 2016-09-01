@@ -238,7 +238,7 @@ int gase_aln(int argc, char *argv[])
 	if (opt->n_threads < 1) opt->n_threads = 1;
 	if (optind + 1 >= argc || optind + 3 < argc) {
 		fprintf(stderr, "\n");
-		fprintf(stderr, "Usage: bwa mem [options] <idxbase> <in1.fq> [in2.fq]\n\n");
+		fprintf(stderr, "Usage: gase gase_aln [options] <ref.fa> <reads.fq> \n\n");
 		fprintf(stderr, "Algorithm options:\n\n");
 		fprintf(stderr, "       -t INT        number of threads [%d]\n", opt->n_threads);
 		fprintf(stderr, "       -k INT        minimum seed length. For fixed length seeds seed_length = INT [%d]\n", opt->min_seed_len);

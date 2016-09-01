@@ -15,10 +15,10 @@ Three different kind of extension techniques can be used:
 
 To compile GASE, run `make`. You may see a lot of warnings. These warning will be fixed in the future. To use GASE we first need to build the index by executing the following command:
 
-`./gase index <ref.fa>`
+`gase index <ref.fa>`
 
 This commands builds the FMD index which is the same as the one used in BWA. To align DNA reads use the following command:
 
-`./gase aln <options> <path to ref.fa> <reads.fastq>`
+`gase gase_aln [options] <path to ref.fa> <reads.fastq>`
 
-To find all the available options type in `./gase aln`. Currently GASE is only tested with single ended reads. 
+To find all the available options type in `gase gase_aln`. Currently GASE is only tested with single ended reads. 
