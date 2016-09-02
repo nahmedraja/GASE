@@ -35,8 +35,8 @@ endif
 all: makedir $(PROG) 
 
 makedir:
-	mkdir -p $(OBJ_DIR)
-	mkdir -p $(LIB_DIR)
+	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(LIB_DIR)
 	@echo "If you donot see anything below this line then there is nothing to \"make\""
 
 gase:libbwa.a $(AOBJS) main.o

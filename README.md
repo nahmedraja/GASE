@@ -19,7 +19,7 @@ To compile GASE, run `make`. You may see a lot of warnings. These warning will b
 
 This commands builds the FMD index which is the same as the one used in BWA. To align DNA reads use the following command:
 
-`gase gase_aln [options] <path to ref.fa> <reads.fastq>`
+`gase gase_aln [options] <ref.fa> <reads.fastq>`
 
 To find all the available options type in `gase gase_aln`. Currently GASE is only tested with single ended reads. 
 
