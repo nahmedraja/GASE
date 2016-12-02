@@ -1545,7 +1545,7 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
       w2 = w2 < ar->w ? w2 : ar->w;
    i = 0;
    a.cigar = 0;
-   /*do {
+   do {
     free(a.cigar);
     w2 = w2 < opt->w << 2 ? w2 : opt->w << 2;
     a.cigar = bwa_gen_cigar2(opt->mat, opt->o_del, opt->e_del, opt->o_ins,
@@ -1558,9 +1558,9 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
     break; // it is possible that global alignment and local alignment give different scores
     last_sc = score;
     w2 <<= 1;
-    } while (++i < 3 && score < ar->truesc - opt->a);*/
-   a.cigar = bwa_gen_cigar2(opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, w2, bns->l_pac, pac, qe - qb, (uint8_t*) &query[qb], rb, re,
-         &score, &a.n_cigar, &NM);
+    } while (++i < 3 && score < ar->truesc - opt->a);
+   //a.cigar = bwa_gen_cigar2(opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, w2, bns->l_pac, pac, qe - qb, (uint8_t*) &query[qb], rb, re,
+     //    &score, &a.n_cigar, &NM);
    if (bwa_verbose >= 4)
       printf("* Final alignment: w2=%d, global_sc=%d, local_sc=%d\n", w2, score, ar->truesc);
    l_MD = strlen((char*) (a.cigar + a.n_cigar)) + 1;

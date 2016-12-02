@@ -783,8 +783,8 @@ int ksw_global2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
    if (n_cigar_)
       *n_cigar_ = 0;
 // allocate memory
-//n_col = qlen < 2 * w + 1 ? qlen : 2 * w + 1; // maximum #columns of the backtrack matrix
-   n_col = qlen;
+   n_col = qlen < 2 * w + 1 ? qlen : 2 * w + 1; // maximum #columns of the backtrack matrix
+  // n_col = qlen;
    z = n_cigar_ && cigar_ ? malloc((long) n_col * tlen) : 0;
    qp = malloc(qlen * m);
    eh = calloc(qlen + 1, 8);
@@ -797,7 +797,7 @@ int ksw_global2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
 // fill the first row
    eh[0].h = 0;
    eh[0].e = MINUS_INF;
-   for (j = 1; j <= qlen /*&& j <= w*/; ++j)
+   for (j = 1; j <= qlen && j <= w; ++j)
       eh[j].h = -(o_ins + e_ins * j), eh[j].e = MINUS_INF;
    for (; j <= qlen; ++j)
       eh[j].h = eh[j].e = MINUS_INF; // everything is -inf outside the band
@@ -805,10 +805,10 @@ int ksw_global2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
    for (i = 0; LIKELY(i < tlen); ++i) { // target sequence is in the outer loop
       int32_t f = MINUS_INF, h1, beg, end, t;
       int8_t *q = &qp[target[i] * qlen];
-      //beg = i > w ? i - w : 0;
-      //end = i + w + 1 < qlen ? i + w + 1 : qlen; // only loop through [beg,end) of the query sequence
-      beg = 0;
-      end = qlen;
+      beg = i > w ? i - w : 0;
+      end = i + w + 1 < qlen ? i + w + 1 : qlen; // only loop through [beg,end) of the query sequence
+      //beg = 0;
+      //end = qlen;
       h1 = beg == 0 ? -(o_del + e_del * (i + 1)) : MINUS_INF;
       if (n_cigar_ && cigar_) {
          uint8_t *zi = &z[(long) i * n_col];
@@ -871,11 +871,11 @@ int ksw_global2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
       int n_cigar = 0, m_cigar = 0, which = 0;
       uint32_t *cigar = 0, tmp;
       i = tlen - 1;
-      //k = (i + w + 1 < qlen ? i + w + 1 : qlen) - 1; // (i,k) points to the last cell
-      k = qlen - 1;
+      k = (i + w + 1 < qlen ? i + w + 1 : qlen) - 1; // (i,k) points to the last cell
+      //k = qlen - 1;
       while (i >= 0 && k >= 0) {
-         //which = z[(long) i * n_col + (k - (i > w ? i - w : 0))] >> (which << 1) & 3;
-         which = z[(long) i * n_col + k] >> (which << 1) & 3;
+         which = z[(long) i * n_col + (k - (i > w ? i - w : 0))] >> (which << 1) & 3;
+         //which = z[(long) i * n_col + k] >> (which << 1) & 3;
          if (which == 0)
             cigar = push_cigar(&n_cigar, &m_cigar, cigar, 0, 1), --i, --k;
          else if (which == 1)
