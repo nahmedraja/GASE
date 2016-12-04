@@ -111,7 +111,8 @@ static void update_a(mem_opt_t *opt, const mem_opt_t *opt0)
 		if (!opt0->pen_unpaired) opt->pen_unpaired *= opt->a;
 	}
 }
-
+char run_exec_time[20];
+FILE* f_exec_time;
 int gase_aln(int argc, char *argv[])
 {
 	mem_opt_t *opt, opt0;
@@ -123,7 +124,7 @@ int gase_aln(int argc, char *argv[])
 	void *ko = 0, *ko2 = 0;
 	mem_pestat_t pes[4];
 	ktp_aux_t aux;
-
+	run_exec_time = "run_exec_time.txt";
 	memset(&aux, 0, sizeof(ktp_aux_t));
 	memset(pes, 0, 4 * sizeof(mem_pestat_t));
 	for (i = 0; i < 4; ++i) pes[i].failed = 1;
@@ -166,6 +167,9 @@ int gase_aln(int argc, char *argv[])
 		else if (c == 'J') opt->seed_intv= atoi(optarg);
 		else if (c == 'e') opt->dp_type = atoi(optarg);
 		else if (c == 'o') opt->opt_ext = atoi(optarg);
+		else if (c == 'g') opt->re_seed = atoi(optarg);
+		else if (c == 'z') opt->use_avx2 = 1;
+		else if (c == 'f') sprintf(run_exec_time, "%s", optarg);
 		else if (c == 'h') {
 			opt0.max_XA_hits = opt0.max_XA_hits_alt = 1;
 			opt->max_XA_hits = opt->max_XA_hits_alt = strtol(optarg, &p, 10);
@@ -229,12 +233,16 @@ int gase_aln(int argc, char *argv[])
 		}
 		else return 1;
 	}
-
+#ifndef __AVX2__
+	if ( opt->use_avx2 == 1){
+		fprintf(stderr, "AVX2 is not available\n");
+		return 1;
+	}
+#endif
 	if (rg_line) {
 		hdr_line = bwa_insert_header(rg_line, hdr_line);
 		free(rg_line);
 	}
-
 	if (opt->n_threads < 1) opt->n_threads = 1;
 	if (optind + 1 >= argc || optind + 3 < argc) {
 		fprintf(stderr, "\n");
@@ -285,6 +293,9 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "                     2(local alignment) [%d],\n\n", opt->dp_type);
 		fprintf(stderr, "       -o            Use SSE2 optimized local alignment or banded BLAST-like seed extension depending upon \"-e\" option.\n");
 		fprintf(stderr, "                     Global alignment is not optimized.\n\n");
+		fprintf(stderr, "       -g INT        If INT = 1, use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM[%d]\n", 0);
+		fprintf(stderr, "       -z        	  Use AVX2 optimized local alignment in place of SSE2,\n");
+		fprintf(stderr, "       -f STR        Use STR as the name of the file to append the execution time,[%s]\n", "run_exec_time.txt");
 		fprintf(stderr, "       -M            mark shorter split hits as secondary\n\n");
 		//fprintf(stderr, "       -I FLOAT[,FLOAT[,INT[,INT]]]\n");
 		//fprintf(stderr, "                     specify the mean, standard deviation (10%% of the mean if absent), max\n");
@@ -360,6 +371,15 @@ int gase_aln(int argc, char *argv[])
 			opt->flag |= MEM_F_PE;
 		}
 	}
+	f_exec_time = fopen(run_exec_time, "a");
+	//The columns in run_exec_time are:
+	//	1- seed type
+	//	2- min. seed length
+	//	3- seed intv
+	//	4- DP algo
+	//	5- execution time
+	//There is no new line at the end so more values may be printed on the same line, if desired.
+	fprintf(f_exec_time,"%d\t%d\t%d\t%d\t", opt->seed_type, opt->min_seed_len, opt->seed_intv, opt->dp_type);
 	bwa_print_sam_hdr(aux.idx->bns, hdr_line);
 	aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
 	kt_pipeline(no_mt_io? 1 : 2, process, &aux, 3);

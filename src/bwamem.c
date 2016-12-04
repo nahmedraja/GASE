@@ -84,6 +84,8 @@ mem_opt_t *mem_opt_init() {
    o->seed_intv = o->min_seed_len;
    o->dp_type = 0;
    o->opt_ext = 0;
+   o->re_seed = 0;
+   o->use_avx2 = 0;
    bwa_fill_scmat(o->a, o->b, o->mat);
    return o;
 }
@@ -175,8 +177,9 @@ static void mem_collect_intv(mem_opt_t *opt, const bwt_t *bwt, int len, const ui
    //bwt_extend_call_1_local = 0, bwt_extend_call_2_local = 0, bwt_extend_call_3_local = 0, bwt_extend_call_4_local = 0, bwt_extend_call_5_local = 0, bwt_extend_call_6_local = 0;
    while (x < len) {
       if (seq[x] < 4) {
-         if (opt->seed_type == 1)
+         if (opt->seed_type == 1){
             x = bwt_smem1(bwt, len, seq, x, start_width, &a->mem1, a->tmpv);
+         }
          else if (opt->seed_type == 2) {
             if (x + opt->min_seed_len <= len) {
                bwt_bowtie_seed(bwt, len, seq, x, start_width, 0, &a->mem1, opt->min_seed_len);
@@ -202,6 +205,35 @@ static void mem_collect_intv(mem_opt_t *opt, const bwt_t *bwt, int len, const ui
          }
       } else
          ++x;
+   }
+   if (opt->seed_type == 1 && opt->re_seed == 1){
+	   old_n = a->mem.n;
+	   for (k = 0; k < old_n; ++k) {
+		   bwtintv_t *p = &a->mem.a[k];
+		   int start = p->info>>32, end = (int32_t)p->info;
+		   if (end - start < split_len || p->x[2] > opt->split_width) continue;
+		   bwt_smem1(bwt, len, seq, (start + end)>>1, p->x[2]+1, &a->mem1, a->tmpv);
+		   for (i = 0; i < a->mem1.n; ++i)
+			   if ((uint32_t)a->mem1.a[i].info - (a->mem1.a[i].info>>32) >= opt->min_seed_len)
+				   kv_push(bwtintv_t, a->mem, a->mem1.a[i]);
+	   }
+	   // third pass: LAST-like
+	   if (opt->max_mem_intv > 0) {
+		   x = 0;
+		   while (x < len) {
+			   if (seq[x] < 4) {
+				   if (1) {
+					   bwtintv_t m;
+					   x = bwt_seed_strategy1(bwt, len, seq, x, opt->min_seed_len, opt->max_mem_intv, &m);
+					   if (m.x[2] > 0) kv_push(bwtintv_t, a->mem, m);
+				   } else { // for now, we never come to this block which is slower
+					   x = bwt_smem1a(bwt, len, seq, x, start_width, opt->max_mem_intv, &a->mem1, a->tmpv);
+					   for (i = 0; i < a->mem1.n; ++i)
+						   kv_push(bwtintv_t, a->mem, a->mem1.a[i]);
+				   }
+			   } else ++x;
+		   }
+	   }
    }
    /*for (i = 0; i < a->mem1.n; ++i)
     if ((uint32_t)a->mem1.a[i].info - (a->mem1.a[i].info>>32) >= opt->min_seed_len)
@@ -235,7 +267,7 @@ static void mem_collect_intv(mem_opt_t *opt, const bwt_t *bwt, int len, const ui
     }
     }*/
    //sort
-   //ks_introsort(mem_intv, a->mem.n, a->mem.a);
+   ks_introsort(mem_intv, a->mem.n, a->mem.a);
 }
 
 /*static void mem_collect_intv(const mem_opt_t *opt, const bwt_t *bwt, int len, const uint8_t *seq, smem_aux_t *a)
@@ -786,7 +818,7 @@ int mem_seed_sw(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, i
       return -1; // the seed seems good enough; no need to do SW
 
    rseq = bns_fetch_seq(bns, pac, &rb, mid, &re, &rid);
-   x = ksw_align2(qe - qb, (uint8_t*) query + qb, re - rb, rseq, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0);
+   x = ksw_align2(qe - qb, (uint8_t*) query + qb, re - rb, rseq, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0, opt->use_avx2);
    free(rseq);
    return x.score;
 }
@@ -1011,7 +1043,7 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
                rs[j] = rseq[i];
             }
             if(opt->opt_ext) {
-               x = ksw_align2(l_query, query, rseq_end - rseq_beg, rs, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0);
+               x = ksw_align2(l_query, query, rseq_end - rseq_beg, rs, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0, opt->use_avx2);
                if (x.score != -1 && x.te != -1 && x.qe != -1 && x.qb != -1 && x.tb != -1){
                   a->score = x.score, a->qb = x.qb, a->qe = x.qe + 1, a->rb = x.tb + rseq_beg + rmax[0], a->re = x.te + rseq_beg + rmax[0] + 1, a->truesc = x.score;
                }

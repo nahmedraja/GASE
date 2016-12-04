@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
 	extern char *bwa_pg;
 	int i, ret;
 	double t_real;
+	extern FILE* f_exec_time;
 	kstring_t pg = {0,0,0};
 	t_real = realtime();
 	ksprintf(&pg, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", PACKAGE_VERSION, argv[0]);
@@ -95,6 +96,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[%s] CMD:", __func__);
 		for (i = 0; i < argc; ++i)
 			fprintf(stderr, " %s", argv[i]);
+		fprintf(f_exec_time,"%.3f\t", realtime() - t_real);
 		fprintf(stderr, "\n[%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - t_real, cputime());
 
 	}
