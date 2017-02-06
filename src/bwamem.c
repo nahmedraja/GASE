@@ -86,6 +86,7 @@ mem_opt_t *mem_opt_init() {
    o->opt_ext = 0;
    o->re_seed = 0;
    o->use_avx2 = 0;
+   o->read_len = 0;
    bwa_fill_scmat(o->a, o->b, o->mat);
    return o;
 }
@@ -1048,7 +1049,7 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
                   a->score = x.score, a->qb = x.qb, a->qe = x.qe + 1, a->rb = x.tb + rseq_beg + rmax[0], a->re = x.te + rseq_beg + rmax[0] + 1, a->truesc = x.score;
                }
                else {
-                  fprintf(stderr, "SSE implementation not working\n");
+                  fprintf(stderr, "SIMD implementation not working\n");
                   exit(EXIT_FAILURE);
                }
             }else {

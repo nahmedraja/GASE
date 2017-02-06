@@ -31,7 +31,7 @@
 #elif __SSE__
 #include <emmintrin.h>
 #endif
-#include <immintrin.h> // library for avx2 instricts
+//#include <immintrin.h> // library for avx2 instricts
 #include <stdio.h>
 #include "ksw.h"
 
@@ -67,6 +67,7 @@ struct _kswq_t {
  * @return       Query data structure
  *
  */
+#ifdef __AVX2__
 kswq_t *ksw_qinit_avx2(int size, int qlen, const uint8_t *query, int m, const int8_t *mat) {//
    kswq_t *q;
    int slen, a, tmp, p;
@@ -257,7 +258,6 @@ kswr_t ksw_u8_avx2(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int _
 
    return r;
 }
-
 kswr_t ksw_i16_avx2(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int _e_del, int _o_ins, int _e_ins, int xtra) // the first gap costs -(_o+_e) AVX2 IMPLEMENTATION
 {
    int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
@@ -267,12 +267,12 @@ kswr_t ksw_i16_avx2(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int 
 
 //Add one line of shift by 16 in order to calculate max_8
 #define __max_8(ret, xx) do { \
-		(xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 16)); \
-		(xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 8)); \
-		(xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 4)); \
-		(xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 2)); \
-    	(ret) = _mm256_extract_epi16((xx), 0); \
-	} while (0)
+      (xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 16)); \
+      (xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 8)); \
+      (xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 4)); \
+      (xx) = _mm256_max_epi16((xx), _mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 2)); \
+      (ret) = _mm256_extract_epi16((xx), 0); \
+   } while (0)
 
 //_mm256_alignr_epi8(_mm256_permute2x128_si256((xx), (xx), _MM_SHUFFLE(2, 0, 0, 1)), (xx), 16)= _mm256_srli_si256 (because _mm256_srli_si256 it doesnt work as a simple shift)
 
@@ -311,24 +311,24 @@ kswr_t ksw_i16_avx2(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int 
          h = _mm256_max_epi16(h, f);
          max = _mm256_max_epi16(max, h);
          _mm256_store_si256(H1 + j, h);
-         e = _mm256_sub_epu16(e, e_del);
-         t = _mm256_sub_epu16(h, oe_del);
+         e = _mm256_subs_epu16(e, e_del);
+         t = _mm256_subs_epu16(h, oe_del);
          e = _mm256_max_epi16(e, t);
          _mm256_store_si256(E + j, e);
-         f = _mm256_sub_epu16(f, e_ins);
-         t = _mm256_sub_epu16(h, oe_ins);
+         f = _mm256_subs_epu16(f, e_ins);
+         t = _mm256_subs_epu16(h, oe_ins);
          f = _mm256_max_epi16(f, t);
          h = _mm256_load_si256(H0 + j);
       }//until here perfect
       for (k = 0; LIKELY(k < 16); ++k) {
-	 mask = _mm256_permute2x128_si256(f, f, _MM_SHUFFLE(0,0,3,0) );
+    mask = _mm256_permute2x128_si256(f, f, _MM_SHUFFLE(0,0,3,0) );
          f= _mm256_alignr_epi8(f,mask,14); //shift right
          for (j = 0; LIKELY(j < slen); ++j) {
             h = _mm256_load_si256(H1 + j);
             h = _mm256_max_epi16(h, f);
             _mm256_store_si256(H1 + j, h);
-            h = _mm256_sub_epu16(h, oe_ins);
-            f = _mm256_sub_epu16(f, e_ins);
+            h = _mm256_subs_epu16(h, oe_ins);
+            f = _mm256_subs_epu16(f, e_ins);
             if (UNLIKELY(!_mm256_movemask_epi8(_mm256_cmpgt_epi16(f, h))))
                goto end_loop8;
          }
@@ -382,6 +382,10 @@ kswr_t ksw_i16_avx2(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int 
    return r;
 }
 
+
+
+
+#endif
 kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t *mat) {
    kswq_t *q;
    int slen, a, tmp, p;
@@ -697,13 +701,20 @@ kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, co
    kswq_t *q;
    kswr_t r, rr;
    kswr_t (*func)(kswq_t*, int, const uint8_t*, int, int, int, int, int);
-
+#ifdef __AVX2__
    if (avx2) q = (qry && *qry) ? *qry : ksw_qinit_avx2((xtra & KSW_XBYTE) ? 1 : 2, qlen, query, m, mat);
    else q = (qry && *qry) ? *qry : ksw_qinit((xtra & KSW_XBYTE) ? 1 : 2, qlen, query, m, mat);
+#else
+   q = (qry && *qry) ? *qry : ksw_qinit((xtra & KSW_XBYTE) ? 1 : 2, qlen, query, m, mat);
+#endif
    if (qry && *qry == 0)
       *qry = q;
+#ifdef __AVX2__
    if (avx2) func = q->size == 2 ? ksw_i16_avx2 : ksw_u8_avx2;
    else func = q->size == 2 ? ksw_i16 : ksw_u8;
+#else
+   func = q->size == 2 ? ksw_i16 : ksw_u8;
+#endif
    size = q->size;
    r = func(q, tlen, target, o_del, e_del, o_ins, e_ins, xtra);
    if (qry == 0)
@@ -712,8 +723,12 @@ kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, co
       return r;
    revseq(r.qe + 1, query);
    revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
+#ifdef __AVX2__
    if (avx2) q = ksw_qinit_avx2(size, r.qe + 1, query, m, mat);
    else q = ksw_qinit(size, r.qe + 1, query, m, mat);
+#else
+   q = ksw_qinit(size, r.qe + 1, query, m, mat);
+#endif
    rr = func(q, tlen, target, o_del, e_del, o_ins, e_ins, KSW_XSTOP | r.score);
    revseq(r.qe + 1, query);
    revseq(r.te + 1, target);

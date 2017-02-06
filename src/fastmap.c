@@ -124,14 +124,15 @@ int gase_aln(int argc, char *argv[])
 	void *ko = 0, *ko2 = 0;
 	mem_pestat_t pes[4];
 	ktp_aux_t aux;
-	run_exec_time = "run_exec_time.txt";
+	//run_exec_time = "run_exec_time.txt";
+	sprintf(run_exec_time, "f");
 	memset(&aux, 0, sizeof(ktp_aux_t));
 	memset(pes, 0, 4 * sizeof(mem_pestat_t));
 	for (i = 0; i < 4; ++i) pes[i].failed = 1;
 
 	aux.opt = opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(mem_opt_t));
-	while ((c = getopt(argc, argv, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:u:b:J:e:o:")) >= 0) {
+	while ((c = getopt(argc, argv, "1paMCSPVYjogzk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:u:b:J:e:l:f:")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') no_mt_io = 1;
 		else if (c == 'x') mode = optarg;
@@ -166,10 +167,11 @@ int gase_aln(int argc, char *argv[])
 		else if (c == 'u') opt->seed_type= atoi(optarg);
 		else if (c == 'J') opt->seed_intv= atoi(optarg);
 		else if (c == 'e') opt->dp_type = atoi(optarg);
-		else if (c == 'o') opt->opt_ext = atoi(optarg);
-		else if (c == 'g') opt->re_seed = atoi(optarg);
+		else if (c == 'o') opt->opt_ext = 1;
+		else if (c == 'g') opt->re_seed = 1;
 		else if (c == 'z') opt->use_avx2 = 1;
 		else if (c == 'f') sprintf(run_exec_time, "%s", optarg);
+		else if (c == 'l') opt->read_len = atoi(optarg);
 		else if (c == 'h') {
 			opt0.max_XA_hits = opt0.max_XA_hits_alt = 1;
 			opt->max_XA_hits = opt->max_XA_hits_alt = strtol(optarg, &p, 10);
@@ -235,10 +237,14 @@ int gase_aln(int argc, char *argv[])
 	}
 #ifndef __AVX2__
 	if ( opt->use_avx2 == 1){
-		fprintf(stderr, "AVX2 is not available\n");
+		fprintf(stderr, "AVX2 is not available on this machine\n");
 		return 1;
 	}
 #endif
+	if (opt->read_len == 0){
+	   fprintf(stderr, "Must specify a read length for reporting execution time\n");
+	   return 1;
+	}
 	if (rg_line) {
 		hdr_line = bwa_insert_header(rg_line, hdr_line);
 		free(rg_line);
@@ -296,6 +302,7 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "       -g INT        If INT = 1, use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM[%d]\n", 0);
 		fprintf(stderr, "       -z        	  Use AVX2 optimized local alignment in place of SSE2,\n");
 		fprintf(stderr, "       -f STR        Use STR as the name of the file to append the execution time,[%s]\n", "run_exec_time.txt");
+		fprintf(stderr, "       -l INT        Must specify a read length for reporting execution time[%d]\n", 0);
 		fprintf(stderr, "       -M            mark shorter split hits as secondary\n\n");
 		//fprintf(stderr, "       -I FLOAT[,FLOAT[,INT[,INT]]]\n");
 		//fprintf(stderr, "                     specify the mean, standard deviation (10%% of the mean if absent), max\n");
@@ -372,14 +379,15 @@ int gase_aln(int argc, char *argv[])
 		}
 	}
 	f_exec_time = fopen(run_exec_time, "a");
-	//The columns in run_exec_time are:
-	//	1- seed type
-	//	2- min. seed length
-	//	3- seed intv
-	//	4- DP algo
-	//	5- execution time
+	//The columns in the tab seperated run_exec_time are:
+	// 1- read length
+	//	2- seed type
+	//	3- min. seed length
+	//	4- seed intv
+	//	5- DP algo
+	//	6- execution time in seconds
 	//There is no new line at the end so more values may be printed on the same line, if desired.
-	fprintf(f_exec_time,"%d\t%d\t%d\t%d\t", opt->seed_type, opt->min_seed_len, opt->seed_intv, opt->dp_type);
+	fprintf(f_exec_time,"%d\t%d\t%d\t%d\t%d\t",opt->read_len, opt->seed_type, opt->min_seed_len, opt->seed_intv, opt->dp_type);
 	bwa_print_sam_hdr(aux.idx->bns, hdr_line);
 	aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
 	kt_pipeline(no_mt_io? 1 : 2, process, &aux, 3);
