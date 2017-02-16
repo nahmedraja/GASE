@@ -302,6 +302,7 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "                     Global alignment is not optimized.\n\n");
 		fprintf(stderr, "       -g INT        If INT = 1, use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM[%d]\n", 0);
 		fprintf(stderr, "       -z        	  Use AVX2 optimized local alignment in place of SSE2,\n");
+		fprintf(stderr, "       -F            Use Shifted Hamming distance seed filter,\n");
 		fprintf(stderr, "       -f STR        Use STR as the name of the file to append the execution time,[%s]\n", "run_exec_time.txt");
 		fprintf(stderr, "       -l INT        Must specify a read length for reporting execution time[%d]\n", 0);
 		fprintf(stderr, "       -M            mark shorter split hits as secondary\n\n");
