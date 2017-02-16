@@ -59,6 +59,7 @@ typedef struct {
 	int re_seed;
 	int use_avx2;
 	int read_len;
+	int shd_filter;
 } mem_opt_t;
 
 typedef struct {

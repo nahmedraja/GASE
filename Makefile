@@ -3,15 +3,19 @@ CC=			gcc
 VPATH=src:obj:lib
 OBJ_DIR=./obj/
 LIB_DIR=./lib/
+#SHD_DIR=./src/shd_filter/
 #CC=			clang --analyze
-CFLAGS=		-g -Wall -Wno-unused-function -O2 
+CFLAGS=		-g -Wall -Wno-unused-function -O2 -msse4.2 
 WRAP_MALLOC=-DUSE_MALLOC_WRAPPERS
 AR=			ar
 DFLAGS=		-DHAVE_PTHREAD $(WRAP_MALLOC)
 
 LOBJS=		utils.o kthread.o kstring.o ksw.o bwt.o bntseq.o bwa.o bwamem.o bwamem_pair.o bwamem_extra.o malloc_wrap.o \
-			QSufSort.o bwt_gen.o rope.o rle.o is.o bwtindex.o
+			QSufSort.o bwt_gen.o rope.o rle.o is.o bwtindex.o 
 LOBJS_PATH=$(addprefix $(OBJ_DIR),$(LOBJS))
+SHD_OBJS=mask.o print.o bit_convert.o popcount.o vector_filter.o
+SHD_OBJS_PATH=$(addprefix $(OBJ_DIR),$(SHD_OBJS))
+#SHD_SRC_PATH=$(addprefix $(SHD_DIR),$(SHD_OBJS))
 AOBJS=		bwashm.o bwase.o bwaseqio.o bwtgap.o bwtaln.o bamlite.o \
 			bwape.o kopen.o pemerge.o maxk.o \
 			bwtsw2_core.o bwtsw2_main.o bwtsw2_aux.o bwt_lite.o \
@@ -26,10 +30,13 @@ ifeq ($(shell uname -s),Linux)
 	LIBS += -lrt
 endif
 
-.SUFFIXES:.c .o .cc
+.SUFFIXES:.c .o .cc .cpp
 
 .c.o:
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $(OBJ_DIR)$@
+
+.cpp.o:
+		g++ -c $(CFLAGS) $(INCLUDES) $< -o $(OBJ_DIR)$(notdir $@)
 
 
 all: makedir $(PROG) 
@@ -39,15 +46,20 @@ makedir:
 	@mkdir -p $(LIB_DIR)
 	@echo "If you donot see anything below this line then there is nothing to \"make\""
 
-gase:libbwa.a $(AOBJS) main.o
-		$(CC) $(CFLAGS) $(DFLAGS) $(AOBJS_PATH) $(OBJ_DIR)main.o -o $@ -L$(LIB_DIR) -lbwa $(LIBS)
+gase:libbwa.a libshd_filter.a $(AOBJS) main.o
+		$(CC) $(CFLAGS) $(DFLAGS) $(AOBJS_PATH) $(OBJ_DIR)main.o -o $@ -L$(LIB_DIR) -lbwa -lshd_filter $(LIBS)
 
 
 libbwa.a:$(LOBJS)
 		$(AR) -csru $(LIB_DIR)$@ $(LOBJS_PATH)
 
+libshd_filter.a: $(SHD_OBJS)
+		#make -C ./src/shd_filter libshd_filter.a
+		ar -csru $(LIB_DIR)$@ $(SHD_OBJS_PATH) 		
+
 clean:
 		rm -f -r gmon.out $(OBJ_DIR) a.out $(PROG) *~ $(LIB_DIR)
+		#make -C ./src/shd_filter/ clean
 
 #depend:
 #	( LC_ALL=C ; export LC_ALL; makedepend -Y -- $(CFLAGS) $(DFLAGS) -- *.c )

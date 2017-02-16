@@ -696,7 +696,7 @@ static inline void revseq(int l, uint8_t *s) {
 }
 
 kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int o_del, int e_del, int o_ins, int e_ins, int xtra,
-      kswq_t **qry, const int avx2) {
+      kswq_t **qry, int avx2) {
    int size;
    kswq_t *q;
    kswr_t r, rr;
@@ -885,10 +885,10 @@ int ksw_extend2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
    k = m * m;
    for (i = 0, max = 0; i < k; ++i) // get the max score
       max = max > mat[i] ? max : mat[i];
-   max_ins = (int) ((double) (qlen * max + /*end_bonus*/ - o_ins) / e_ins + 1.);
+   max_ins = (int) ((double) (qlen * max + end_bonus - o_ins) / e_ins + 1.);
    max_ins = max_ins > 1 ? max_ins : 1;
    w = w < max_ins ? w : max_ins;
-   max_del = (int) ((double) (qlen * max + /*end_bonus*/ - o_del) / e_del + 1.);
+   max_del = (int) ((double) (qlen * max + end_bonus - o_del) / e_del + 1.);
    max_del = max_del > 1 ? max_del : 1;
    w = w < max_del ? w : max_del; // TODO: is this necessary?
 // DP loop
@@ -939,10 +939,10 @@ int ksw_extend2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
       }
       eh[end].h = h1;
       eh[end].e = 0;
-      /*if (j == qlen) {
+      if (j == qlen) {
          max_ie = gscore > h1 ? max_ie : i;
          gscore = gscore > h1 ? gscore : h1;
-      }*/
+      }
       if (m == 0)
          break;
       if (m > max) {

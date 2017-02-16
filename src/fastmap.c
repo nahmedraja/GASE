@@ -132,7 +132,7 @@ int gase_aln(int argc, char *argv[])
 
 	aux.opt = opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(mem_opt_t));
-	while ((c = getopt(argc, argv, "1paMCSPVYjogzk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:u:b:J:e:l:f:")) >= 0) {
+	while ((c = getopt(argc, argv, "1paMCSPVYjgozFk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:u:b:J:e:l:f:")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') no_mt_io = 1;
 		else if (c == 'x') mode = optarg;
@@ -171,6 +171,7 @@ int gase_aln(int argc, char *argv[])
 		else if (c == 'g') opt->re_seed = 1;
 		else if (c == 'z') opt->use_avx2 = 1;
 		else if (c == 'f') sprintf(run_exec_time, "%s", optarg);
+		else if (c == 'F') opt->shd_filter = 1;
 		else if (c == 'l') opt->read_len = atoi(optarg);
 		else if (c == 'h') {
 			opt0.max_XA_hits = opt0.max_XA_hits_alt = 1;
@@ -295,9 +296,9 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "       -u INT        Seed type. Possible options: 1(all-SMEM), 2(fixed length seeds with no mismatch),\n");
 		fprintf(stderr, "                     3(nov-SMEM), 4(fixed length seeds with at most 1 mismatch) [%d],\n\n", opt->seed_type);
 		fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]\n\n", opt->seed_intv);
-		fprintf(stderr, "       -e INT        Algorithm in the extension stage. Possible options 0(BLAST-like seed extension), 1(global alignment),\n");
+		fprintf(stderr, "       -e INT        Algorithm in the extension stage. Possible options 0(BWA-MEM seed extension with all heuristics), 1(global alignment),\n");
 		fprintf(stderr, "                     2(local alignment) [%d],\n\n", opt->dp_type);
-		fprintf(stderr, "       -o            Use SSE2 optimized local alignment or banded BLAST-like seed extension depending upon \"-e\" option.\n");
+		fprintf(stderr, "       -o            Use SSE2 optimized local alignment or banded BWA-MEM seed extension depending upon \"-e\" option.\n");
 		fprintf(stderr, "                     Global alignment is not optimized.\n\n");
 		fprintf(stderr, "       -g INT        If INT = 1, use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM[%d]\n", 0);
 		fprintf(stderr, "       -z        	  Use AVX2 optimized local alignment in place of SSE2,\n");
