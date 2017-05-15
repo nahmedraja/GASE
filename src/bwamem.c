@@ -15,7 +15,7 @@
 #include "kvec.h"
 #include "ksort.h"
 #include "utils.h"
-#include "./shd_filter/vector_filter.h"
+#include "vector_filter.h"
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
