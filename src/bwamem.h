@@ -64,7 +64,9 @@ typedef struct {
 
 typedef struct {
 	int64_t rb, re; // [rb,re): reference sequence in the alignment
+	int64_t rb_est, re_est;
 	int qb, qe;     // [qb,qe): query sequence in the alignment
+	int qb_est, qe_est;
 	int rid;        // reference seq ID
 	int score;      // best local SW score
 	int truesc;     // actual score corresponding to the aligned region; possibly smaller than $score

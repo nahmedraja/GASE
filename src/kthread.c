@@ -31,7 +31,7 @@ static inline long steal_work(kt_for_t *t)
 	return k >= t->n? -1 : k;
 }
 
-static void *ktf_worker(void *data)
+/*static void *ktf_worker(void *data)
 {
 	ktf_worker_t *w = (ktf_worker_t*)data;
 	long i;
@@ -43,9 +43,32 @@ static void *ktf_worker(void *data)
 	while ((i = steal_work(w->t)) >= 0)
 		w->t->func(w->t->data, i, w - w->t->w);
 	pthread_exit(0);
+}*/
+
+#define READ_BATCH_SIZE 20000
+static void *ktf_worker(void *data)
+{
+   extern void worker1(void *data, int i, int tid, int n_reads);
+   ktf_worker_t *w = (ktf_worker_t*)data;
+   int i;
+   for (;;) {
+      if(w->t->func == &worker1){
+         i = __sync_fetch_and_add(&w->i, (w->t->n_threads * READ_BATCH_SIZE));
+         if (i >= w->t->n) break;
+         w->t->func(w->t->data, i, w - w->t->w, READ_BATCH_SIZE);
+      }
+      else
+         i = __sync_fetch_and_add(&w->i, w->t->n_threads);
+
+      if (i >= w->t->n) break;
+      w->t->func(w->t->data, i, w - w->t->w, w->t->n);
+   }
+   while ((i = steal_work(w->t)) >= 0)
+      w->t->func(w->t->data, i, w - w->t->w, w->t->n);
+   pthread_exit(0);
 }
 
-void kt_for(int n_threads, void (*func)(void*,long,int), void *data, long n)
+void kt_for(int n_threads, void (*func)(void*,long,int,int), void *data, long n)
 {
 	int i;
 	kt_for_t t;

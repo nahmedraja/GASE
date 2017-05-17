@@ -297,7 +297,7 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "                     3(nov-SMEM), 4(fixed length seeds with at most 1 mismatch) [%d],\n\n", opt->seed_type);
 		fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]\n\n", opt->seed_intv);
 		fprintf(stderr, "       -e INT        Algorithm in the extension stage. Possible options 0(BWA-MEM seed extension with all heuristics), 1(global alignment),\n");
-		fprintf(stderr, "                     2(local alignment) [%d],\n\n", opt->dp_type);
+		fprintf(stderr, "                     2(SW alignment using SSE2) 3 (SW alignment using GPU) [%d],\n\n", opt->dp_type);
 		fprintf(stderr, "       -o            Use SSE2 optimized local alignment or banded BWA-MEM seed extension depending upon \"-e\" option.\n");
 		fprintf(stderr, "                     Global alignment is not optimized.\n\n");
 		fprintf(stderr, "       -g INT        If INT = 1, use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM[%d]\n", 0);
