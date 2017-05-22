@@ -17,7 +17,7 @@ typedef struct kt_for_t {
 	int n_threads;
 	long n;
 	ktf_worker_t *w;
-	void (*func)(void*,long,int);
+	void (*func)(void*,int, int, int, int);
 	void *data;
 } kt_for_t;
 
@@ -45,31 +45,32 @@ static inline long steal_work(kt_for_t *t)
 	pthread_exit(0);
 }*/
 
-#define READ_BATCH_SIZE 20000
+#define READ_BATCH_SIZE 10000
 static void *ktf_worker(void *data)
 {
-   extern void worker1(void *data, int i, int tid, int n_reads);
+   extern void worker1(void *data, int i, int tid, int batch_size, int total_reads);
    ktf_worker_t *w = (ktf_worker_t*)data;
    int i;
    for (;;) {
       if(w->t->func == &worker1){
          i = __sync_fetch_and_add(&w->i, (w->t->n_threads * READ_BATCH_SIZE));
          if (i >= w->t->n) break;
-         w->t->func(w->t->data, i, w - w->t->w, READ_BATCH_SIZE);
+         w->t->func(w->t->data, i, w - w->t->w, READ_BATCH_SIZE, w->t->n);
       }
-      else
+      else {
          i = __sync_fetch_and_add(&w->i, w->t->n_threads);
-
-      if (i >= w->t->n) break;
-      w->t->func(w->t->data, i, w - w->t->w, w->t->n);
+         if (i >= w->t->n) break;
+         w->t->func(w->t->data, i, w - w->t->w, READ_BATCH_SIZE, w->t->n);
+      }
    }
-   while ((i = steal_work(w->t)) >= 0)
-      w->t->func(w->t->data, i, w - w->t->w, w->t->n);
+  // while ((i = steal_work(w->t)) >= 0)
+   //   w->t->func(w->t->data, i, w - w->t->w, w->t->n);
    pthread_exit(0);
 }
 
-void kt_for(int n_threads, void (*func)(void*,long,int,int), void *data, long n)
+void kt_for(int n_threads, void (*func)(void*,int, int, int, int), void *data, long n)
 {
+   extern void worker1(void *data, int i, int tid, int batch_size, int total_reads);
 	int i;
 	kt_for_t t;
 	pthread_t *tid;
@@ -77,10 +78,11 @@ void kt_for(int n_threads, void (*func)(void*,long,int,int), void *data, long n)
 	t.w = (ktf_worker_t*)alloca(n_threads * sizeof(ktf_worker_t));
 	tid = (pthread_t*)alloca(n_threads * sizeof(pthread_t));
 	for (i = 0; i < n_threads; ++i)
-		t.w[i].t = &t, t.w[i].i = i;
+		t.w[i].t = &t, t.w[i].i = (func == &worker1) ? i*READ_BATCH_SIZE : i;
 	for (i = 0; i < n_threads; ++i) pthread_create(&tid[i], 0, ktf_worker, &t.w[i]);
 	for (i = 0; i < n_threads; ++i) pthread_join(tid[i], 0);
 }
+
 
 /*****************
  * kt_pipeline() *

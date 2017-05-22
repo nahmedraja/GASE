@@ -1026,35 +1026,17 @@ static inline int cal_max_gap(const mem_opt_t *opt, int qlen) {
 
 #define MAX_BAND_TRY  2
 
-void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_query, const uint8_t *query, const mem_chain_t *c, mem_alnreg_v *av)
+typedef kvec_t(uint8_t*) seq_ptr_arr;
+typedef kvec_t(int) seq_lens;
+//typedef kvec_t(int) aln_pair;
+void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_query, const uint8_t *query, const mem_chain_t *c, mem_alnreg_v *av, seq_ptr_arr *read_seqns, seq_ptr_arr *ref_seqns, seq_lens *read_seq_lens, seq_lens *ref_seq_lens)
 {
-   int i, k, rid, max_off[2], aw[2]; // aw: actual bandwidth used in extension
-   int64_t l_pac = bns->l_pac, rmax[2], tmp, max = 0;
-   const mem_seed_t *s;
-   uint8_t *rseq = 0;
+   int i, k;
    uint64_t *srt;
 
    if (c->n == 0) return;
    // get the max possible span
-   rmax[0] = l_pac<<1; rmax[1] = 0;
-   for (i = 0; i < c->n; ++i) {
-      int64_t b, e;
-      const mem_seed_t *t = &c->seeds[i];
-      b = t->rbeg - (t->qbeg + cal_max_gap(opt, t->qbeg));
-      e = t->rbeg + t->len + ((l_query - t->qbeg - t->len) + cal_max_gap(opt, l_query - t->qbeg - t->len));
-      rmax[0] = rmax[0] < b? rmax[0] : b;
-      rmax[1] = rmax[1] > e? rmax[1] : e;
-      if (t->len > max) max = t->len;
-   }
-   rmax[0] = rmax[0] > 0? rmax[0] : 0;
-   rmax[1] = rmax[1] < l_pac<<1? rmax[1] : l_pac<<1;
-   if (rmax[0] < l_pac && l_pac < rmax[1]) { // crossing the forward-reverse boundary; then choose one side
-      if (c->seeds[0].rbeg < l_pac) rmax[1] = l_pac; // this works because all seeds are guaranteed to be on the same strand
-      else rmax[0] = l_pac;
-   }
-   // retrieve the reference sequence
-   rseq = bns_fetch_seq(bns, pac, &rmax[0], c->seeds[0].rbeg, &rmax[1], &rid);
-   assert(c->rid == rid);
+
 
    srt = malloc(c->n * 8);
    for (i = 0; i < c->n; ++i)
@@ -1063,6 +1045,10 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 
    for (k = c->n - 1; k >= 0; --k) {
       mem_alnreg_t *a;
+      int i, rid, max_off[2], aw[2]; // aw: actual bandwidth used in extension
+      int64_t l_pac = bns->l_pac, rmax[2], tmp, max = 0;
+      const mem_seed_t *s;
+      uint8_t *rseq = 0;
       s = &c->seeds[(uint32_t)srt[k]];
 
       for (i = 0; i < av->n; ++i) { // test whether extension has been made before
@@ -1107,9 +1093,43 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
       a->w = aw[0] = aw[1] = opt->w;
       a->score = a->truesc = -1;
       a->rid = c->rid;
+      a->seed_score = s->score;
+      a->seed_rbeg = s->rbeg;
+      a->seed_qbeg = s->qbeg;
+      int fwd = 0.75*(l_query - (s->qbeg + s->len));
+      a->qe_est = ((s->qbeg + s->len) + fwd)  < l_query ? ((s->qbeg + s->len) + fwd) : l_query;
+      a->re_est = ((s->rbeg + s->len) + fwd)  < l_pac << 1 ? ((s->rbeg + s->len) + fwd) : l_pac << 1;
+      int back = 0.75*(s->qbeg + 1);
+      a->qb_est =  (s->qbeg - back) > 0 ? (s->qbeg - back) : 0;
+      a->rb_est =  (s->rbeg - back) > 0 ? (s->rbeg - back) : 0;
+      if (a->rb_est < l_pac && l_pac < a->qe_est) { // crossing the forward-reverse boundary; then choose one side
+         if (s->rbeg < l_pac)
+            a->re_est = l_pac; // this works because all seeds are guaranteed to be on the same strand
+         else
+            a->rb_est = l_pac;
+      }
+      rmax[0] = l_pac<<1; rmax[1] = 0;
+      rmax[0] = s->rbeg - (s->qbeg + cal_max_gap(opt, s->qbeg));
+      rmax[1] = s->rbeg + s->len + ((l_query - s->qbeg - s->len) + cal_max_gap(opt, l_query - s->qbeg - s->len));
+      if (s->len > max) max = s->len;
+      rmax[0] = rmax[0] > 0? rmax[0] : 0;
+      rmax[1] = rmax[1] < l_pac<<1? rmax[1] : l_pac<<1;
+      if (rmax[0] < l_pac && l_pac < rmax[1]) { // crossing the forward-reverse boundary; then choose one side
+         if (s->rbeg < l_pac) rmax[1] = l_pac; // this works because all seeds are guaranteed to be on the same strand
+         else rmax[0] = l_pac;
+      }
+      // retrieve the reference sequence
+      rseq = bns_fetch_seq(bns, pac, &rmax[0], s->rbeg, &rmax[1], &rid);
+      assert(c->rid == rid);
+      a->rseq_beg = rmax[0];
       if (bwa_verbose >= 4)
          err_printf("** ---> Extending from seed(%d) [%ld;%ld,%ld] @ %s <---\n", k, (long) s->len, (long) s->qbeg, (long) s->rbeg,
                bns->anns[c->rid].name);
+      kv_push(uint8_t*, *read_seqns, query);
+      kv_push(uint8_t*, *ref_seqns, rseq);
+      kv_push(int, *read_seq_lens, l_query);
+      kv_push(int, *ref_seq_lens, rmax[1] - rmax[0]);
+      //kv_push(int, *read_idx_vec, read_idx);
       /*if(opt->seed_type == 2) {
        uint8_t *rs, *qs;
        int qle, tle, gtle, gscore;
@@ -1361,7 +1381,7 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 //      a->frac_rep = c->frac_rep;
    }
    free(srt);
-   free(rseq);
+   //free(rseq);
 }
 
 /*****************************
@@ -1659,77 +1679,133 @@ void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, 
       free(XA);
    }
 }
-mem_alnreg_v mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *seq, void *buf, int n_reads, int batch_start_idx) {
-   int j;
 
-   kvec_t(mem_alnreg_v) regs_vec;
-   kv_init(regs_vec);
-   kv_resize(mem_alnreg_v, regs_vec, n_reads);
-   kvec_t(mem_chain_v) mem_chain_v_vec;
-   kv_init(mem_chain_v_vec);
-   kv_resize(mem_chain_v, mem_chain_v_vec, n_reads);
+void  print_seq(int length, uint8_t* seq){
+   int i;
+   for (i = 0; i < length; ++i) {
+      putc("01234"[(int)seq[i]], stderr);
+   }
+   fprintf(stderr,"\n");
+}
+void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *seq, void *buf, int batch_size, int batch_start_idx, mem_alnreg_v *w_regs) {
+     int j,  r;
+     seq_ptr_arr read_seqns;
+     seq_ptr_arr ref_seqns;
+     //aln_pair read_idx_vec;
+     kv_init(read_seqns);
+     kv_resize(uint8_t*, read_seqns, batch_size);
+     kv_init(ref_seqns);
+     kv_resize(uint8_t*, ref_seqns, batch_size*10);
+     seq_lens read_seq_lens;
+     seq_lens ref_seq_lens;
+     kv_init(read_seq_lens);
+     kv_resize(int, read_seq_lens, batch_size);
+     kv_init(ref_seq_lens);
+     kv_resize(int, ref_seq_lens, batch_size*10);
+     //kv_init(read_idx_vec);
+     //kv_resize(int, read_idx_vec, n_reads*10);
+     kvec_t(mem_alnreg_v) regs_vec;
+     kv_init(regs_vec);
+     kv_resize(mem_alnreg_v, regs_vec, batch_size);
+//   kvec_t(mem_chain_v) mem_chain_v_vec;
+//   kv_init(mem_chain_v_vec);
+//   kv_resize(mem_chain_v, mem_chain_v_vec, n_reads);
    //read_no++;
    //fprintf(stderr, "%d\n", read_no);
    //fflush(stderr);
-   for (j = batch_start_idx; j < batch_start_idx + n_reads; ++j) {
-      mem_chain_v chn;
-      mem_alnreg_v regs;
-      int i;
-      char *read_seq = seq[j].seq;
-      int read_l_seq = seq[j].l_seq;
-      for (i = 0; i < read_l_seq; ++i) // convert to 2-bit encoding if we have not done so
-         read_seq[i] = read_seq[i] < 4 ? read_seq[i] : nst_nt4_table[(int) read_seq[i]];
-      chn = mem_chain(opt, bwt, bns, read_l_seq, (uint8_t*)(read_seq), buf);
-      chn.n = mem_chain_flt(opt, chn.n, chn.a);
+     for (j = batch_start_idx; j < batch_start_idx + batch_size; ++j) {
+        mem_chain_v chn;
+        mem_alnreg_v regs;
+        int i;
+        char *read_seq = seq[j].seq;
+        int read_l_seq = seq[j].l_seq;
+        for (i = 0; i < read_l_seq; ++i) // convert to 2-bit encoding if we have not done so
+           read_seq[i] = read_seq[i] < 4 ? read_seq[i] : nst_nt4_table[(int) read_seq[i]];
+        //print_seq(read_l_seq, read_seq);
+        //fflush(stderr);
+        //fprintf(stderr, "%d,", j);
+        chn = mem_chain(opt, bwt, bns, read_l_seq, (uint8_t*)(read_seq), buf);
+        chn.n = mem_chain_flt(opt, chn.n, chn.a);
 
-      if (opt->shd_filter) mem_shd_flt_chained_seeds(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), chn.n, chn.a);
-      else mem_flt_chained_seeds(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), chn.n, chn.a);
-      if (bwa_verbose >= 4)
-         mem_print_chain(bns, &chn);
-      /*for (i = 0; i < chn.n; ++i) {
+        if (opt->shd_filter) mem_shd_flt_chained_seeds(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), chn.n, chn.a);
+        else mem_flt_chained_seeds(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), chn.n, chn.a);
+        if (bwa_verbose >= 4)
+           mem_print_chain(bns, &chn);
+        /*for (i = 0; i < chn.n; ++i) {
          mem_chain_t *c = &chn.a[i];
          if (c->n == 0) continue;
          uint64_t *srt;
          srt = malloc(c->n * 8);
          for (i = 0; i < c->n; ++i) srt[i] = (uint64_t)c->seeds[i].score<<32 | i;
             ks_introsort_64(c->n, srt);*/
-      kv_init(regs);
-      for (i = 0; i < chn.n; ++i) {
-               mem_chain_t *p = &chn.a[i];
-               if (bwa_verbose >= 4) err_printf("* ---> Processing chain(%d) <---\n", i);
-               mem_chain2aln(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), p, &regs);
-               free(chn.a[i].seeds);
-      }
+        kv_init(regs);
+        for (i = 0; i < chn.n; ++i) {
+           mem_chain_t *p = &chn.a[i];
+           if (bwa_verbose >= 4) err_printf("* ---> Processing chain(%d) <---\n", i);
+           mem_chain2aln(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), p, &regs, &read_seqns, &ref_seqns, &read_seq_lens, &ref_seq_lens);
+           free(chn.a[i].seeds);
+        }
+        free(chn.a);
+        kv_push(mem_alnreg_v, regs_vec, regs);
+        //smem_aux_destroy((smem_aux_t*)buf);
+        //buf = smem_aux_init();
 
+     }
 
-      }
-      kv_push(mem_chain_v, mem_chain_v_vec, chn);
-      smem_aux_destroy((smem_aux_t*)buf);
-      buf = smem_aux_init();
+     int seq_idx=0;
+     for(j = 0, r = batch_start_idx; j < kv_size(regs_vec); ++j, ++r){
+        int i;
+        mem_alnreg_v regs = kv_A(regs_vec, j);
+        for(i = 0; i < regs.n; ++i){
+           mem_alnreg_t *a = &regs.a[i];
+           if (a->seed_len != kv_A(read_seq_lens, seq_idx)) {
+              uint8_t *rs;
+              kswr_t x;
+              x.score = -1, x.te = -1, x.qe = -1, x.qb = -1, x.tb = -1, x.score2 = -1, x.te2 = -1;
+              //print_seq(kv_A(read_seq_lens, seq_idx), kv_A(read_seqns, seq_idx));
+              //print_seq(kv_A(ref_seq_lens, seq_idx), kv_A(ref_seqns, seq_idx));
+              //fflush(stderr);
+              x = ksw_align2(kv_A(read_seq_lens, seq_idx), kv_A(read_seqns, seq_idx), kv_A(ref_seq_lens, seq_idx), kv_A(ref_seqns, seq_idx), 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0,
+                    opt->use_avx2);
+              if (x.score != -1 && x.te != -1 && x.qe != -1 && x.qb != -1 && x.tb != -1) {
+                 a->score = x.score, a->qb = x.qb, a->qe = x.qe + 1, a->rb = x.tb + a->rseq_beg, a->re = x.te + a->rseq_beg + 1, a->truesc =
+                       x.score;
+              }
+              else {
+                 fprintf(stderr, "SIMD implementation not working\n");
+                 exit(EXIT_FAILURE);
+              }
+           }
+           else {
+              a->score = a->truesc = a->seed_score, a->qb = 0, a->rb = a->seed_rbeg, a->qe = kv_A(read_seq_lens, seq_idx), a->re = a->seed_rbeg + a->seed_len;
+           }
+           free(kv_A(ref_seqns, seq_idx));
+           seq_idx++;
+        }
+        regs.n = mem_sort_dedup_patch(opt, bns, pac,(uint8_t*)(seq[r].seq), regs.n, regs.a);
+        if (bwa_verbose >= 4) {
+           err_printf("* %ld chains remain after removing duplicated chains\n", regs.n);
+           for (i = 0; i < regs.n; ++i) {
+              mem_alnreg_t *p = &regs.a[i];
+              printf("** %d, [%d,%d) <=> [%ld,%ld)\n", p->score, p->qb, p->qe, (long)p->rb, (long)p->re);
+           }
+        }
+        for (i = 0; i < regs.n; ++i) {
+           mem_alnreg_t *p = &regs.a[i];
+           if (p->rid >= 0 && bns->anns[p->rid].is_alt)
+              p->is_alt = 1;
+           //free(kv_A(read_seqns, i));
 
+        }
+        w_regs[r] = regs;
+        //free(regs.a);
 
-   kv_init(regs);
-      for (i = 0; i < chn.n; ++i) {
-         mem_chain_t *p = &chn.a[i];
-         if (bwa_verbose >= 4) err_printf("* ---> Processing chain(%d) <---\n", i);
-         mem_chain2aln(opt, bns, pac, l_seq, (uint8_t*)seq, p, &regs);
-         free(chn.a[i].seeds);
-      }
-      free(chn.a);
-      regs.n = mem_sort_dedup_patch(opt, bns, pac, (uint8_t*)seq, regs.n, regs.a);
-      if (bwa_verbose >= 4) {
-         err_printf("* %ld chains remain after removing duplicated chains\n", regs.n);
-         for (i = 0; i < regs.n; ++i) {
-            mem_alnreg_t *p = &regs.a[i];
-            printf("** %d, [%d,%d) <=> [%ld,%ld)\n", p->score, p->qb, p->qe, (long)p->rb, (long)p->re);
-         }
-      }
-      for (i = 0; i < regs.n; ++i) {
-         mem_alnreg_t *p = &regs.a[i];
-         if (p->rid >= 0 && bns->anns[p->rid].is_alt)
-            p->is_alt = 1;
-      }
-      return regs;
+     }
+     kv_destroy(read_seqns);
+     kv_destroy(ref_seqns);
+     kv_destroy(read_seq_lens);
+     kv_destroy(ref_seq_lens);
+     kv_destroy(regs_vec);
 
 }
 
@@ -1831,23 +1907,24 @@ typedef struct {
    int64_t n_processed;
 } worker_t;
 
-static void worker1(void *data, int i, int tid, int n_reads) {
+void worker1(void *data, int i, int tid, int batch_size, int total_reads) {
    worker_t *w = (worker_t*) data;
-   if (!(w->opt->flag & MEM_F_PE)) {
+   //if (!(w->opt->flag & MEM_F_PE)) {
       if (bwa_verbose >= 4)
          printf("=====> Processing read '%s' <=====\n", w->seqs[i].name);
-      w->regs[i] = mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs, w->aux[tid], n_reads, i);
-   } else {
-      if (bwa_verbose >= 4)
-         printf("=====> Processing read '%s'/1 <=====\n", w->seqs[i << 1 | 0].name);
-      w->regs[i << 1 | 0] = mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs[i << 1 | 0].l_seq, w->seqs[i << 1 | 0].seq, w->aux[tid]);
-      if (bwa_verbose >= 4)
-         printf("=====> Processing read '%s'/2 <=====\n", w->seqs[i << 1 | 1].name);
-      w->regs[i << 1 | 1] = mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs[i << 1 | 1].l_seq, w->seqs[i << 1 | 1].seq, w->aux[tid]);
-   }
+      if(i + batch_size >= total_reads) batch_size = total_reads - i;
+      mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs, w->aux[tid], batch_size, i, w->regs);
+  // } else {
+   //   if (bwa_verbose >= 4)
+   //      printf("=====> Processing read '%s'/1 <=====\n", w->seqs[i << 1 | 0].name);
+   //   w->regs[i << 1 | 0] = mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs[i << 1 | 0].l_seq, w->seqs[i << 1 | 0].seq, w->aux[tid]);
+   //   if (bwa_verbose >= 4)
+   //      printf("=====> Processing read '%s'/2 <=====\n", w->seqs[i << 1 | 1].name);
+   //   w->regs[i << 1 | 1] = mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs[i << 1 | 1].l_seq, w->seqs[i << 1 | 1].seq, w->aux[tid]);
+   //}
 }
 
-static void worker2(void *data, int i, int tid) {
+static void worker2(void *data, int i, int tid, int batch_size, int n_reads) {
    extern int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],
          mem_alnreg_v a[2]);
    extern void mem_reg2ovlp(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a);
@@ -1869,7 +1946,7 @@ static void worker2(void *data, int i, int tid) {
 
 void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs,
       const mem_pestat_t *pes0) {
-   extern void kt_for(int n_threads, void (*func)(void*, int, int, int), void *data, int n);
+   extern void kt_for(int n_threads, void (*func)(void*, int, int, int, int), void *data, int n);
    worker_t w;
    mem_pestat_t pes[4];
    double ctime, rtime;
@@ -1889,7 +1966,7 @@ void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bn
    w.aux = malloc(opt->n_threads * sizeof(smem_aux_t));
    for (i = 0; i < opt->n_threads; ++i)
       w.aux[i] = smem_aux_init();
-   kt_for(opt->n_threads, worker1, &w, (opt->flag & MEM_F_PE) ? n >> 1 : n); // find mapping positions
+   kt_for(opt->n_threads, worker1, &w, /*(opt->flag & MEM_F_PE) ? n >> 1 : */n); // find mapping positions
    for (i = 0; i < opt->n_threads; ++i)
       smem_aux_destroy(w.aux[i]);
    free(w.aux);
