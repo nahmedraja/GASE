@@ -1033,8 +1033,9 @@ typedef kvec_t(int) seq_lens;
 uint64_t no_of_extensions = 0;
 void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_query, const uint8_t *query, const mem_chain_t *c, mem_alnreg_v *av, seq_ptr_arr *read_seqns, seq_ptr_arr *ref_seqns, seq_lens *read_seq_lens, seq_lens *ref_seq_lens)
 {
-   int i, k, rid;
+   int i, k, rid, max_off[2], aw[2];
    int64_t l_pac = bns->l_pac, rmax[2], tmp, max = 0;
+   const mem_seed_t *s;
    uint64_t *srt;
    uint8_t *rseq = 0;
    if (c->n == 0) return;
@@ -1066,8 +1067,6 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 
    for (k = c->n - 1; k >= 0; --k) {
       mem_alnreg_t *a;
-      int max_off[2], aw[2]; // aw: actual bandwidth used in extension
-      const mem_seed_t *s;
       s = &c->seeds[(uint32_t)srt[k]];
 
       for (i = 0; i < av->n; ++i) { // test whether extension has been made before
@@ -1158,6 +1157,7 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
       kv_push(uint8_t*, *ref_seqns, rs);
       kv_push(int, *read_seq_lens, l_query);
       kv_push(int, *ref_seq_lens, rseq_end - rseq_beg);
+      no_of_extensions++;
       //kv_push(int, *read_idx_vec, read_idx);
       /*if(opt->seed_type == 2) {
        uint8_t *rs, *qs;
@@ -1790,7 +1790,6 @@ void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns
            if (a->seed_len != kv_A(read_seq_lens, seq_idx)) {
               uint8_t *rs;
               kswr_t x;
-              no_of_extensions++;
               x.score = -1, x.te = -1, x.qe = -1, x.qb = -1, x.tb = -1, x.score2 = -1, x.te2 = -1;
               //print_seq(kv_A(read_seq_lens, seq_idx), kv_A(read_seqns, seq_idx));
               //print_seq(kv_A(ref_seq_lens, seq_idx), kv_A(ref_seqns, seq_idx));
