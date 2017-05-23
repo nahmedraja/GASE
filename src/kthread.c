@@ -1,7 +1,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <limits.h>
-
+#include <stdio.h>
 /************
  * kt_for() *
  ************/
@@ -20,14 +20,16 @@ typedef struct kt_for_t {
 	void (*func)(void*,int, int, int, int);
 	void *data;
 } kt_for_t;
-
+#define READ_BATCH_SIZE 10000
 static inline long steal_work(kt_for_t *t)
 {
+   extern void worker1(void *data, int i, int tid, int batch_size, int total_reads);
 	int i, min_i = -1;
 	long k, min = LONG_MAX;
 	for (i = 0; i < t->n_threads; ++i)
 		if (min > t->w[i].i) min = t->w[i].i, min_i = i;
-	k = __sync_fetch_and_add(&t->w[min_i].i, t->n_threads);
+	if(t->func == &worker1) k = __sync_fetch_and_add(&t->w[min_i].i, (t->n_threads * READ_BATCH_SIZE));
+	else k = __sync_fetch_and_add(&t->w[min_i].i, t->n_threads );
 	return k >= t->n? -1 : k;
 }
 
@@ -45,7 +47,7 @@ static inline long steal_work(kt_for_t *t)
 	pthread_exit(0);
 }*/
 
-#define READ_BATCH_SIZE 10000
+
 static void *ktf_worker(void *data)
 {
    extern void worker1(void *data, int i, int tid, int batch_size, int total_reads);
@@ -63,8 +65,10 @@ static void *ktf_worker(void *data)
          w->t->func(w->t->data, i, w - w->t->w, READ_BATCH_SIZE, w->t->n);
       }
    }
-  // while ((i = steal_work(w->t)) >= 0)
-   //   w->t->func(w->t->data, i, w - w->t->w, w->t->n);
+   while ((i = steal_work(w->t)) >= 0){
+      //if(w->t->func == &worker1) fprintf(stderr, "thread no. %d is here processing i %d to %d\n", w - w->t->w, i, i + READ_BATCH_SIZE);
+      w->t->func(w->t->data, i, w - w->t->w, READ_BATCH_SIZE, w->t->n);
+   }
    pthread_exit(0);
 }
 

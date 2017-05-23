@@ -1029,14 +1029,35 @@ static inline int cal_max_gap(const mem_opt_t *opt, int qlen) {
 typedef kvec_t(uint8_t*) seq_ptr_arr;
 typedef kvec_t(int) seq_lens;
 //typedef kvec_t(int) aln_pair;
+
+uint64_t no_of_extensions = 0;
 void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_query, const uint8_t *query, const mem_chain_t *c, mem_alnreg_v *av, seq_ptr_arr *read_seqns, seq_ptr_arr *ref_seqns, seq_lens *read_seq_lens, seq_lens *ref_seq_lens)
 {
-   int i, k;
+   int i, k, rid;
+   int64_t l_pac = bns->l_pac, rmax[2], tmp, max = 0;
    uint64_t *srt;
-
+   uint8_t *rseq = 0;
    if (c->n == 0) return;
    // get the max possible span
-
+   rmax[0] = l_pac<<1; rmax[1] = 0;
+   for (i = 0; i < c->n; ++i) {
+      int64_t b, e;
+      const mem_seed_t *t = &c->seeds[i];
+      b = t->rbeg - (t->qbeg + cal_max_gap(opt, t->qbeg));
+      e = t->rbeg + t->len + ((l_query - t->qbeg - t->len) + cal_max_gap(opt, l_query - t->qbeg - t->len));
+      rmax[0] = rmax[0] < b? rmax[0] : b;
+      rmax[1] = rmax[1] > e? rmax[1] : e;
+      if (t->len > max) max = t->len;
+   }
+   rmax[0] = rmax[0] > 0? rmax[0] : 0;
+   rmax[1] = rmax[1] < l_pac<<1? rmax[1] : l_pac<<1;
+   if (rmax[0] < l_pac && l_pac < rmax[1]) { // crossing the forward-reverse boundary; then choose one side
+      if (c->seeds[0].rbeg < l_pac) rmax[1] = l_pac; // this works because all seeds are guaranteed to be on the same strand
+      else rmax[0] = l_pac;
+   }
+   // retrieve the reference sequence
+   rseq = bns_fetch_seq(bns, pac, &rmax[0], c->seeds[0].rbeg, &rmax[1], &rid);
+   assert(c->rid == rid);
 
    srt = malloc(c->n * 8);
    for (i = 0; i < c->n; ++i)
@@ -1045,25 +1066,23 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 
    for (k = c->n - 1; k >= 0; --k) {
       mem_alnreg_t *a;
-      int i, rid, max_off[2], aw[2]; // aw: actual bandwidth used in extension
-      int64_t l_pac = bns->l_pac, rmax[2], tmp, max = 0;
+      int max_off[2], aw[2]; // aw: actual bandwidth used in extension
       const mem_seed_t *s;
-      uint8_t *rseq = 0;
       s = &c->seeds[(uint32_t)srt[k]];
 
       for (i = 0; i < av->n; ++i) { // test whether extension has been made before
          mem_alnreg_t *p = &av->a[i];
          int64_t rd;
          int qd, w, max_gap;
-         if (s->rbeg < p->rb || s->rbeg + s->len > p->re || s->qbeg < p->qb || s->qbeg + s->len > p->qe) continue; // not fully contained
+         if (s->rbeg < p->rb_est || s->rbeg + s->len > p->re_est || s->qbeg < p->qb_est || s->qbeg + s->len > p->qe_est) continue; // not fully contained
          if (s->len - p->seedlen0 > .1 * l_query) continue; // this seed may give a better alignment
          // qd: distance ahead of the seed on query; rd: on reference
-         qd = s->qbeg - p->qb; rd = s->rbeg - p->rb;
+         qd = s->qbeg - p->qb_est; rd = s->rbeg - p->rb_est;
          max_gap = cal_max_gap(opt, qd < rd? qd : rd); // the maximal gap allowed in regions ahead of the seed
          w = max_gap < p->w? max_gap : p->w; // bounded by the band width
          if (qd - rd < w && rd - qd < w) break; // the seed is "around" a previous hit
          // similar to the previous four lines, but this time we look at the region behind
-         qd = p->qe - (s->qbeg + s->len); rd = p->re - (s->rbeg + s->len);
+         qd = p->qe_est - (s->qbeg + s->len); rd = p->re_est - (s->rbeg + s->len);
          max_gap = cal_max_gap(opt, qd < rd? qd : rd);
          w = max_gap < p->w? max_gap : p->w;
          if (qd - rd < w && rd - qd < w) break;
@@ -1108,27 +1127,37 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
          else
             a->rb_est = l_pac;
       }
-      rmax[0] = l_pac<<1; rmax[1] = 0;
-      rmax[0] = s->rbeg - (s->qbeg + cal_max_gap(opt, s->qbeg));
-      rmax[1] = s->rbeg + s->len + ((l_query - s->qbeg - s->len) + cal_max_gap(opt, l_query - s->qbeg - s->len));
-      if (s->len > max) max = s->len;
-      rmax[0] = rmax[0] > 0? rmax[0] : 0;
-      rmax[1] = rmax[1] < l_pac<<1? rmax[1] : l_pac<<1;
-      if (rmax[0] < l_pac && l_pac < rmax[1]) { // crossing the forward-reverse boundary; then choose one side
-         if (s->rbeg < l_pac) rmax[1] = l_pac; // this works because all seeds are guaranteed to be on the same strand
-         else rmax[0] = l_pac;
+//      rmax[0] = l_pac<<1; rmax[1] = 0;
+//      rmax[0] = s->rbeg - (s->qbeg + cal_max_gap(opt, s->qbeg));
+//      rmax[1] = s->rbeg + s->len + ((l_query - s->qbeg - s->len) + cal_max_gap(opt, l_query - s->qbeg - s->len));
+//      if (s->len > max) max = s->len;
+//      rmax[0] = rmax[0] > 0? rmax[0] : 0;
+//      rmax[1] = rmax[1] < l_pac<<1? rmax[1] : l_pac<<1;
+//      if (rmax[0] < l_pac && l_pac < rmax[1]) { // crossing the forward-reverse boundary; then choose one side
+//         if (s->rbeg < l_pac) rmax[1] = l_pac; // this works because all seeds are guaranteed to be on the same strand
+//         else rmax[0] = l_pac;
+//      }
+//      // retrieve the reference sequence
+//      rseq = bns_fetch_seq(bns, pac, &rmax[0], s->rbeg, &rmax[1], &rid);
+//      assert(c->rid == rid);
+      int rseq_beg, rseq_end;
+      rseq_beg = s->rbeg - (s->qbeg + cal_max_gap(opt, s->qbeg)) - rmax[0];
+      rseq_end = s->rbeg + s->len + ((l_query - s->qbeg - s->len) + cal_max_gap(opt, l_query - s->qbeg - s->len)) - rmax[0];
+      rseq_beg = rseq_beg > 0 ? rseq_beg : 0;
+      rseq_end = rseq_end < (rmax[1] - rmax[0]) ? rseq_end : (rmax[1] - rmax[0]);
+      uint8_t* rs = malloc(rseq_end - rseq_beg);
+      int j;
+      for (i = rseq_beg, j = 0; i < rseq_end; ++i, ++j) {
+         rs[j] = rseq[i];
       }
-      // retrieve the reference sequence
-      rseq = bns_fetch_seq(bns, pac, &rmax[0], s->rbeg, &rmax[1], &rid);
-      assert(c->rid == rid);
-      a->rseq_beg = rmax[0];
+      a->rseq_beg = rmax[0] + rseq_beg;
       if (bwa_verbose >= 4)
          err_printf("** ---> Extending from seed(%d) [%ld;%ld,%ld] @ %s <---\n", k, (long) s->len, (long) s->qbeg, (long) s->rbeg,
                bns->anns[c->rid].name);
       kv_push(uint8_t*, *read_seqns, query);
-      kv_push(uint8_t*, *ref_seqns, rseq);
+      kv_push(uint8_t*, *ref_seqns, rs);
       kv_push(int, *read_seq_lens, l_query);
-      kv_push(int, *ref_seq_lens, rmax[1] - rmax[0]);
+      kv_push(int, *ref_seq_lens, rseq_end - rseq_beg);
       //kv_push(int, *read_idx_vec, read_idx);
       /*if(opt->seed_type == 2) {
        uint8_t *rs, *qs;
@@ -1381,7 +1410,7 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 //      a->frac_rep = c->frac_rep;
    }
    free(srt);
-   //free(rseq);
+   free(rseq);
 }
 
 /*****************************
@@ -1693,13 +1722,13 @@ void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns
      seq_ptr_arr ref_seqns;
      //aln_pair read_idx_vec;
      kv_init(read_seqns);
-     kv_resize(uint8_t*, read_seqns, batch_size);
+     kv_resize(uint8_t*, read_seqns, 10*batch_size);
      kv_init(ref_seqns);
      kv_resize(uint8_t*, ref_seqns, batch_size*10);
      seq_lens read_seq_lens;
      seq_lens ref_seq_lens;
      kv_init(read_seq_lens);
-     kv_resize(int, read_seq_lens, batch_size);
+     kv_resize(int, read_seq_lens, 10*batch_size);
      kv_init(ref_seq_lens);
      kv_resize(int, ref_seq_lens, batch_size*10);
      //kv_init(read_idx_vec);
@@ -1761,6 +1790,7 @@ void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns
            if (a->seed_len != kv_A(read_seq_lens, seq_idx)) {
               uint8_t *rs;
               kswr_t x;
+              no_of_extensions++;
               x.score = -1, x.te = -1, x.qe = -1, x.qb = -1, x.tb = -1, x.score2 = -1, x.te2 = -1;
               //print_seq(kv_A(read_seq_lens, seq_idx), kv_A(read_seqns, seq_idx));
               //print_seq(kv_A(ref_seq_lens, seq_idx), kv_A(ref_seqns, seq_idx));

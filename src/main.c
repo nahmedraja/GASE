@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
 	ksprintf(&pg, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", PACKAGE_VERSION, argv[0]);
 	for (i = 1; i < argc; ++i) ksprintf(&pg, " %s", argv[i]);
 	bwa_pg = pg.s;
+	extern uint64_t no_of_extensions;
 	if (argc < 2) return usage();
 	/*if (strcmp(argv[1], "fa2pac") == 0) ret = bwa_fa2pac(argc-1, argv+1);
 	else if (strcmp(argv[1], "pac2bwt") == 0) ret = bwa_pac2bwt(argc-1, argv+1);
@@ -98,7 +99,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, " %s", argv[i]);
 		fprintf(f_exec_time,"%.3f\t", realtime() - t_real);
 		fprintf(stderr, "\n[%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - t_real, cputime());
-
+		fprintf(stderr,"No. of extensions = %llu\n", no_of_extensions);
 	}
 	free(bwa_pg);
 	return ret;
