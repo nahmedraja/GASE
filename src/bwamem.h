@@ -69,7 +69,6 @@ typedef struct {
 	int qb_est, qe_est;
 	int64_t rseq_beg;
 	int64_t seed_rbeg;
-	int64_t seed_len;
 	int seed_qbeg;
 	int seed_score;
 	int rid;        // reference seq ID
