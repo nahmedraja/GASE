@@ -1028,19 +1028,18 @@ static inline int cal_max_gap(const mem_opt_t *opt, int qlen) {
 
 typedef kvec_t(uint8_t*) seq_ptr_arr;
 typedef kvec_t(int) seq_lens;
+typedef kvec_t(uint8_t) seq_batch;
+typedef kvec_t(int) seq_offsets;
 //typedef kvec_t(int) aln_pair;
 
-uint64_t no_of_extensions = 0;
-void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_query, const uint8_t *query, const mem_chain_t *c, mem_alnreg_v *av, seq_ptr_arr *read_seqns, seq_ptr_arr *ref_seqns, seq_lens *read_seq_lens, seq_lens *ref_seq_lens)
+void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_query, const uint8_t *query, const mem_chain_t *c, mem_alnreg_v *av, seq_lens *read_seq_lens, seq_offsets *read_seq_offsets, int *curr_read_offset, seq_batch *ref_seq_batch, seq_lens *ref_seq_lens, seq_offsets *ref_seq_offsets, int *curr_ref_offset)
 {
-   int i, k, rid, max_off[2], aw[2];
-   int64_t l_pac = bns->l_pac, rmax[2], tmp, max = 0;
-   const mem_seed_t *s;
+   int i, k;
    uint64_t *srt;
-   uint8_t *rseq = 0;
    if (c->n == 0) return;
+   //extern uint64_t *no_of_extensions;
    // get the max possible span
-   rmax[0] = l_pac<<1; rmax[1] = 0;
+   /*rmax[0] = l_pac<<1; rmax[1] = 0;
    for (i = 0; i < c->n; ++i) {
       int64_t b, e;
       const mem_seed_t *t = &c->seeds[i];
@@ -1058,7 +1057,7 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
    }
    // retrieve the reference sequence
    rseq = bns_fetch_seq(bns, pac, &rmax[0], c->seeds[0].rbeg, &rmax[1], &rid);
-   assert(c->rid == rid);
+   assert(c->rid == rid);*/
 
    srt = malloc(c->n * 8);
    for (i = 0; i < c->n; ++i)
@@ -1067,8 +1066,10 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 
    for (k = c->n - 1; k >= 0; --k) {
       mem_alnreg_t *a;
+      int64_t l_pac = bns->l_pac, tmp, max = 0;
+      const mem_seed_t *s;
       s = &c->seeds[(uint32_t)srt[k]];
-
+      int max_off[2], aw[2];
       for (i = 0; i < av->n; ++i) { // test whether extension has been made before
          mem_alnreg_t *p = &av->a[i];
          int64_t rd;
@@ -1111,9 +1112,6 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
       a->w = aw[0] = aw[1] = opt->w;
       a->score = a->truesc = -1;
       a->rid = c->rid;
-      a->seed_score = s->score;
-      a->seed_rbeg = s->rbeg;
-      a->seed_qbeg = s->qbeg;
       int fwd = 0.75*(l_query - (s->qbeg + s->len));
       a->qe_est = ((s->qbeg + s->len) + fwd)  < l_query ? ((s->qbeg + s->len) + fwd) : l_query;
       a->re_est = ((s->rbeg + s->len) + fwd)  < l_pac << 1 ? ((s->rbeg + s->len) + fwd) : l_pac << 1;
@@ -1139,25 +1137,50 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 //      // retrieve the reference sequence
 //      rseq = bns_fetch_seq(bns, pac, &rmax[0], s->rbeg, &rmax[1], &rid);
 //      assert(c->rid == rid);
-      int rseq_beg, rseq_end;
+      if(s->len != l_query) {
+    	  int64_t rmax[2];
+    	  uint8_t *rseq = 0;
+    	  int rid;
+    	  rmax[0] = l_pac<<1; rmax[1] = 0;
+    	  rmax[0] = s->rbeg - (s->qbeg + cal_max_gap(opt, s->qbeg));
+    	  rmax[1] = s->rbeg + s->len + ((l_query - s->qbeg - s->len) + cal_max_gap(opt, l_query - s->qbeg - s->len));
+    	  rmax[0] = rmax[0] > 0? rmax[0] : 0;
+    	  rmax[1] = rmax[1] < l_pac<<1? rmax[1] : l_pac<<1;
+    	  if (rmax[0] < l_pac && l_pac < rmax[1]) { // crossing the forward-reverse boundary; then choose one side
+    		  if (s->rbeg < l_pac) rmax[1] = l_pac; // this works because all seeds are guaranteed to be on the same strand
+    		  else rmax[0] = l_pac;
+    	  }
+    	  // retrieve the reference sequence
+    	  rseq = bns_fetch_seq(bns, pac, &rmax[0], s->rbeg, &rmax[1], &rid);
+    	  assert(c->rid == rid);
+    	  /*int rseq_beg, rseq_end;
       rseq_beg = s->rbeg - (s->qbeg + cal_max_gap(opt, s->qbeg)) - rmax[0];
       rseq_end = s->rbeg + s->len + ((l_query - s->qbeg - s->len) + cal_max_gap(opt, l_query - s->qbeg - s->len)) - rmax[0];
       rseq_beg = rseq_beg > 0 ? rseq_beg : 0;
-      rseq_end = rseq_end < (rmax[1] - rmax[0]) ? rseq_end : (rmax[1] - rmax[0]);
-      uint8_t* rs = malloc(rseq_end - rseq_beg);
-      int j;
-      for (i = rseq_beg, j = 0; i < rseq_end; ++i, ++j) {
-         rs[j] = rseq[i];
+      rseq_end = rseq_end < (rmax[1] - rmax[0]) ? rseq_end : (rmax[1] - rmax[0]);*/
+    	  //uint8_t* rs = malloc(rseq_end - rseq_beg);
+    	  int j;
+    	  for (i = 0, j = 0; i < (rmax[1] - rmax[0]) && j < 2*opt->read_len; ++i, ++j) {
+    		  //rs[j] = rseq[i];
+    		  kv_push(uint8_t, *ref_seq_batch, rseq[i]);
+    	  }
+    	  a->rseq_beg = rmax[0] /*+ rseq_beg*/;
+    	  if (bwa_verbose >= 4)
+    		  err_printf("** ---> Extending from seed(%d) [%ld;%ld,%ld] @ %s <---\n", k, (long) s->len, (long) s->qbeg, (long) s->rbeg,
+    				  bns->anns[c->rid].name);
+    	  //kv_push(uint8_t*, *read_seqns, query);
+    	  //kv_push(uint8_t*, *ref_seqns, rs);
+    	  //kv_push(int, *read_seq_lens, l_query);
+    	  kv_push(int, *read_seq_lens, l_query);
+    	  kv_push(int, *read_seq_offsets, *curr_read_offset);
+    	  kv_push(int, *ref_seq_lens, (rmax[1] - rmax[0]));
+    	  kv_push(int, *ref_seq_offsets, *curr_ref_offset);
+    	  *curr_ref_offset +=  (rmax[1] - rmax[0]);
+    	  free(rseq);
       }
-      a->rseq_beg = rmax[0] + rseq_beg;
-      if (bwa_verbose >= 4)
-         err_printf("** ---> Extending from seed(%d) [%ld;%ld,%ld] @ %s <---\n", k, (long) s->len, (long) s->qbeg, (long) s->rbeg,
-               bns->anns[c->rid].name);
-      kv_push(uint8_t*, *read_seqns, query);
-      kv_push(uint8_t*, *ref_seqns, rs);
-      kv_push(int, *read_seq_lens, l_query);
-      kv_push(int, *ref_seq_lens, rseq_end - rseq_beg);
-      no_of_extensions++;
+      else {
+    	  a->score = a->truesc = s->score, a->qb = 0, a->rb = s->rbeg, a->qe = l_query, a->re = s->rbeg + s->len;
+      }
       //kv_push(int, *read_idx_vec, read_idx);
       /*if(opt->seed_type == 2) {
        uint8_t *rs, *qs;
@@ -1399,18 +1422,17 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 //               (long) a->re, a->score, aw[0], aw[1]);
 //
 //      // compute seedcov
-//      for (i = 0, a->seedcov = 0; i < c->n; ++i) {
-//         const mem_seed_t *t = &c->seeds[i];
-//         if (t->qbeg >= a->qb && t->qbeg + t->len <= a->qe && t->rbeg >= a->rb && t->rbeg + t->len <= a->re) // seed fully contained
-//            a->seedcov += t->len; // this is not very accurate, but for approx. mapQ, this is good enough
-//      }
-//      a->w = aw[0] > aw[1] ? aw[0] : aw[1];
-//      a->seedlen0 = s->len;
-//
-//      a->frac_rep = c->frac_rep;
+      for (i = 0, a->seedcov = 0; i < c->n; ++i) {
+           const mem_seed_t *t = &c->seeds[i];
+           if (t->qbeg >= a->qb && t->qbeg + t->len <= a->qe && t->rbeg >= a->rb && t->rbeg + t->len <= a->re) // seed fully contained
+              a->seedcov += t->len; // this is not very accurate, but for approx. mapQ, this is good enough
+      }
+      a->w = aw[0] > aw[1] ? aw[0] : aw[1];
+      a->seedlen0 = s->len;
+
+      a->frac_rep = c->frac_rep;
    }
    free(srt);
-   free(rseq);
 }
 
 /*****************************
@@ -1711,45 +1733,73 @@ void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, 
 
 void  print_seq(int length, uint8_t* seq){
    int i;
+   fprintf(stderr,"seq length = %d: ", length);
    for (i = 0; i < length; ++i) {
-      putc("01234"[(int)seq[i]], stderr);
+      putc("ACGTN"[(int)seq[i]], stderr);
    }
    fprintf(stderr,"\n");
 }
-void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *seq, void *buf, int batch_size, int batch_start_idx, mem_alnreg_v *w_regs) {
+void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *seq, void *buf, int batch_size, int batch_start_idx, mem_alnreg_v *w_regs, int tid) {
      int j,  r;
-     seq_ptr_arr read_seqns;
-     seq_ptr_arr ref_seqns;
+     extern uint64_t *no_of_extensions;
+     //seq_ptr_arr read_seqns;
+     //seq_ptr_arr ref_seqns;
      //aln_pair read_idx_vec;
-     kv_init(read_seqns);
-     kv_resize(uint8_t*, read_seqns, 10*batch_size);
-     kv_init(ref_seqns);
-     kv_resize(uint8_t*, ref_seqns, batch_size*10);
-     seq_lens read_seq_lens;
-     seq_lens ref_seq_lens;
-     kv_init(read_seq_lens);
-     kv_resize(int, read_seq_lens, 10*batch_size);
-     kv_init(ref_seq_lens);
-     kv_resize(int, ref_seq_lens, batch_size*10);
+     //kv_init(read_seqns);
+     //kv_resize(uint8_t*, read_seqns, 10*batch_size);
+     //kv_init(ref_seqns);
+     //kv_resize(uint8_t*, ref_seqns, batch_size*10);
+     //seq_lens read_seq_lens;
+     //seq_lens ref_seq_lens;
+     //kv_init(read_seq_lens);
+     //kv_resize(int, read_seq_lens, 10*batch_size);
+     //kv_init(ref_seq_lens);
+     //kv_resize(int, ref_seq_lens, batch_size*10);
      //kv_init(read_idx_vec);
      //kv_resize(int, read_idx_vec, n_reads*10);
      kvec_t(mem_alnreg_v) regs_vec;
      kv_init(regs_vec);
      kv_resize(mem_alnreg_v, regs_vec, batch_size);
+
+     seq_batch read_seq_batch;
+     kv_init(read_seq_batch);
+     kv_resize(uint8_t, read_seq_batch, opt->read_len*batch_size);
+     seq_lens read_seq_lens;
+     kv_init(read_seq_lens);
+     kv_resize(int, read_seq_lens, 10*batch_size);
+     seq_offsets read_seq_offsets;
+     kv_init(read_seq_offsets);
+     kv_resize(int, read_seq_offsets, 10*batch_size);
+
+     seq_batch ref_seq_batch;
+     kv_init(ref_seq_batch);
+     kv_resize(uint8_t, ref_seq_batch, 2*opt->read_len * batch_size * 10);
+     seq_lens ref_seq_lens;
+     kv_init(ref_seq_lens);
+     kv_resize(int, ref_seq_lens, 10*batch_size);
+     seq_offsets ref_seq_offsets;
+     kv_init(ref_seq_offsets);
+     kv_resize(int, ref_seq_offsets, 10*batch_size);
 //   kvec_t(mem_chain_v) mem_chain_v_vec;
 //   kv_init(mem_chain_v_vec);
 //   kv_resize(mem_chain_v, mem_chain_v_vec, n_reads);
    //read_no++;
    //fprintf(stderr, "%d\n", read_no);
    //fflush(stderr);
+     int curr_read_offset = 0;
+     int curr_ref_offset = 0;
      for (j = batch_start_idx; j < batch_start_idx + batch_size; ++j) {
         mem_chain_v chn;
         mem_alnreg_v regs;
         int i;
         char *read_seq = seq[j].seq;
         int read_l_seq = seq[j].l_seq;
-        for (i = 0; i < read_l_seq; ++i) // convert to 2-bit encoding if we have not done so
+        for (i = 0; i < read_l_seq; ++i){ // convert to 2-bit encoding if we have not done so
            read_seq[i] = read_seq[i] < 4 ? read_seq[i] : nst_nt4_table[(int) read_seq[i]];
+           kv_push(uint8_t, read_seq_batch, (uint8_t)(read_seq[i]));
+        }
+        //kv_push(int, read_seq_lens, read_l_seq);
+        //kv_push(int, read_seq_offsets, curr_read_offset);
         //print_seq(read_l_seq, read_seq);
         //fflush(stderr);
         //fprintf(stderr, "%d,", j);
@@ -1771,45 +1821,66 @@ void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns
         for (i = 0; i < chn.n; ++i) {
            mem_chain_t *p = &chn.a[i];
            if (bwa_verbose >= 4) err_printf("* ---> Processing chain(%d) <---\n", i);
-           mem_chain2aln(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), p, &regs, &read_seqns, &ref_seqns, &read_seq_lens, &ref_seq_lens);
+           mem_chain2aln(opt, bns, pac, read_l_seq, (uint8_t*)(read_seq), p, &regs, &read_seq_lens, &read_seq_offsets, &curr_read_offset, &ref_seq_batch, &ref_seq_lens, &ref_seq_offsets, &curr_ref_offset);
            free(chn.a[i].seeds);
         }
+        curr_read_offset += read_l_seq;
         free(chn.a);
         kv_push(mem_alnreg_v, regs_vec, regs);
         //smem_aux_destroy((smem_aux_t*)buf);
         //buf = smem_aux_init();
 
      }
-
+     assert(kv_size(regs_vec) == batch_size);
      int seq_idx=0;
-     for(j = 0, r = batch_start_idx; j < kv_size(regs_vec); ++j, ++r){
+     for(j = 0, r = batch_start_idx; j < batch_size; ++j, ++r){
         int i;
         mem_alnreg_v regs = kv_A(regs_vec, j);
+        //int read_pos = kv_A(read_seq_offsets, j);
+        //int read_len = kv_A(read_seq_lens, j);
+        //uint8_t* read_seq = &(kv_A(read_seq_batch, read_pos));
         for(i = 0; i < regs.n; ++i){
            mem_alnreg_t *a = &regs.a[i];
-           if (a->seed_len != kv_A(read_seq_lens, seq_idx)) {
+           if (a->seedlen0 != seq[r].l_seq/*kv_A(read_seq_lens, seq_idx)*/) {
               uint8_t *rs;
               kswr_t x;
+              no_of_extensions[tid]++;
+              int read_pos = kv_A(read_seq_offsets, seq_idx);
+              int read_len = kv_A(read_seq_lens, seq_idx);
+              uint8_t* read_seq = &(kv_A(read_seq_batch, read_pos));
+              int ref_pos = kv_A(ref_seq_offsets, seq_idx);
+              int ref_len = kv_A(ref_seq_lens, seq_idx);
+              uint8_t* ref_seq = &(kv_A(ref_seq_batch, ref_pos));
               x.score = -1, x.te = -1, x.qe = -1, x.qb = -1, x.tb = -1, x.score2 = -1, x.te2 = -1;
               //print_seq(kv_A(read_seq_lens, seq_idx), kv_A(read_seqns, seq_idx));
               //print_seq(kv_A(ref_seq_lens, seq_idx), kv_A(ref_seqns, seq_idx));
               //fflush(stderr);
-              x = ksw_align2(kv_A(read_seq_lens, seq_idx), kv_A(read_seqns, seq_idx), kv_A(ref_seq_lens, seq_idx), kv_A(ref_seqns, seq_idx), 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0,
-                    opt->use_avx2);
+
+              //x = ksw_align2(kv_A(read_seq_lens, seq_idx), kv_A(read_seqns, seq_idx), kv_A(ref_seq_lens, seq_idx), kv_A(ref_seqns, seq_idx), 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0,
+                //    opt->use_avx2);
+              x = ksw_align2(read_len, read_seq, ref_len, ref_seq, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0,
+              opt->use_avx2);
               if (x.score != -1 && x.te != -1 && x.qe != -1 && x.qb != -1 && x.tb != -1) {
                  a->score = x.score, a->qb = x.qb, a->qe = x.qe + 1, a->rb = x.tb + a->rseq_beg, a->re = x.te + a->rseq_beg + 1, a->truesc =
                        x.score;
               }
               else {
                  fprintf(stderr, "SIMD implementation not working\n");
+                 print_seq(read_len, read_seq);
+                 print_seq(ref_len, ref_seq);
+                 fprintf(stderr, "read_no in the batch = %d with seq_idx = %d but number of read_lens = %d", j, seq_idx, kv_size(ref_seq_lens));
+                 fflush(stderr);
                  exit(EXIT_FAILURE);
               }
+              seq_idx++;
            }
-           else {
-              a->score = a->truesc = a->seed_score, a->qb = 0, a->rb = a->seed_rbeg, a->qe = kv_A(read_seq_lens, seq_idx), a->re = a->seed_rbeg + a->seed_len;
-           }
-           free(kv_A(ref_seqns, seq_idx));
-           seq_idx++;
+           //if((a->qe - a->qb) == 865350) {
+             //                  print_seq(read_len, read_seq);
+               //                print_seq(ref_len, ref_seq);
+                 //              fflush(stderr);
+           //}
+           //free(kv_A(ref_seqns, seq_idx));
+
         }
         regs.n = mem_sort_dedup_patch(opt, bns, pac,(uint8_t*)(seq[r].seq), regs.n, regs.a);
         if (bwa_verbose >= 4) {
@@ -1830,10 +1901,14 @@ void mem_align1_core(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns
         //free(regs.a);
 
      }
-     kv_destroy(read_seqns);
-     kv_destroy(ref_seqns);
+     //kv_destroy(read_seqns);
+     //kv_destroy(ref_seqns);
+     kv_destroy(read_seq_batch);
+     kv_destroy(ref_seq_batch);
      kv_destroy(read_seq_lens);
      kv_destroy(ref_seq_lens);
+     kv_destroy(read_seq_offsets);
+     kv_destroy(ref_seq_offsets);
      kv_destroy(regs_vec);
 
 }
@@ -1942,7 +2017,7 @@ void worker1(void *data, int i, int tid, int batch_size, int total_reads) {
       if (bwa_verbose >= 4)
          printf("=====> Processing read '%s' <=====\n", w->seqs[i].name);
       if(i + batch_size >= total_reads) batch_size = total_reads - i;
-      mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs, w->aux[tid], batch_size, i, w->regs);
+      mem_align1_core(w->opt, w->bwt, w->bns, w->pac, w->seqs, w->aux[tid], batch_size, i, w->regs, tid);
   // } else {
    //   if (bwa_verbose >= 4)
    //      printf("=====> Processing read '%s'/1 <=====\n", w->seqs[i << 1 | 0].name);
@@ -2010,3 +2085,4 @@ void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bn
    if (bwa_verbose >= 3)
       fprintf(stderr, "[M::%s] Processed %d reads in %.3f CPU sec, %.3f real sec\n", __func__, n, cputime() - ctime, realtime() - rtime);
 }
+
