@@ -13,7 +13,7 @@ Currently re-seeding is only available for all-SMEM. The reseeding algorithm is 
 2. Local alignment
 3. BLAST-like seed extension
 
-To compile GASE, run `make`. You may see a lot of warnings. These warning will be fixed in the future. To use GASE we first need to build the index by executing the following command:
+To compile GASE, run `make`. To use GASE we first need to build the index by executing the following command:
 
 `gase index <ref.fa>`
 
