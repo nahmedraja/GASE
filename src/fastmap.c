@@ -433,17 +433,16 @@ int main_fastmap(int argc, char *argv[])
 	      fprintf(stderr, "       -s INT        look for internal seeds inside a seed with less than INT occ (ONLY FOR ALL SMEM RE-SEEDING)[%d]\n", opt->split_width);
 	      fprintf(stderr, "       -c INT        skip seeds with more than INT occurrences [%d]\n", opt->max_occ);
 	      fprintf(stderr, "       -u INT        Seed type. Possible options: 1(all-SMEM), 2(fixed length seeds with no mismatch),\n");
-	      fprintf(stderr, "                     3(nov-SMEM), 4(fixed length seeds with at most 1 mismatch) [%d],\n\n", opt->seed_type);
-	      fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]\n\n", opt->seed_intv);
+	      fprintf(stderr, "                     3(nov-SMEM), 4(fixed length seeds with at most 1 mismatch) [%d],\n", opt->seed_type);
+	      fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]\n", opt->seed_intv);
 	      fprintf(stderr, "       -g            Use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM\n");
-	      fprintf(stderr, "       -p            Print the read ");
+	      fprintf(stderr, "       -p            Print the read\n");
 	      //fprintf(stderr, "       -I FLOAT[,FLOAT[,INT[,INT]]]\n");
 	      //fprintf(stderr, "                     specify the mean, standard deviation (10%% of the mean if absent), max\n");
 	      //fprintf(stderr, "                     (4 sigma from the mean if absent) and min of the insert size distribution.\n");
 	      //fprintf(stderr, "                     FR orientation only. [inferred]\n");
 	      fprintf(stderr, "\n");
 	      //fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
-	      fprintf(stderr, "\n");
 	      free(opt);
 	      return 1;
 	   }
