@@ -23,7 +23,7 @@ This commands builds the FMD index which is the same as the one used in BWA. To 
 
 `gase gase_aln [options] <ref.fa> <reads.fastq>`
 
-Fo all the available alignment options type `gase gase_aln`. To test different seeding algorithm only, use the following command:
+Fo all the available alignment options type `gase gase_aln`. To test different seeding algorithms only, use the following command:
 
 `gase fastmap [options] <ref.fa> <reads.fastq>`
 
