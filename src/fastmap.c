@@ -169,7 +169,6 @@ int gase_aln(int argc, char *argv[])
 		else if (c == 'e') opt->dp_type = atoi(optarg);
 		else if (c == 'o') opt->opt_ext = 1;
 		else if (c == 'g') opt->re_seed = 1;
-		else if (c == 'z') opt->use_avx2 = 1;
 		else if (c == 'f') sprintf(run_exec_time, "%s", optarg);
 		else if (c == 'F') opt->shd_filter = 1;
 		else if (c == 'l') opt->read_len = atoi(optarg);
@@ -236,12 +235,6 @@ int gase_aln(int argc, char *argv[])
 		}
 		else return 1;
 	}
-#ifndef __AVX2__
-	if ( opt->use_avx2 == 1){
-		fprintf(stderr, "AVX2 is not available on this machine\n");
-		return 1;
-	}
-#endif
 	if (opt->read_len == 0){
 	   fprintf(stderr, "Must specify a read length for reporting execution time\n");
 	   return 1;
@@ -258,27 +251,27 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "       -t INT        number of threads [%d]\n", opt->n_threads);
 		fprintf(stderr, "       -k INT        minimum seed length. For fixed length seeds seed_length = INT [%d]\n", opt->min_seed_len);
 		fprintf(stderr, "       -w INT        band width for banded alignment [%d]\n", opt->w);
-		//fprintf(stderr, "       -d INT        off-diagonal X-dropoff [%d]\n", opt->zdrop);
-		//fprintf(stderr, "       -r FLOAT      look for internal seeds inside a seed longer than {-k} * FLOAT [%g]\n", opt->split_factor);
-		//fprintf(stderr, "       -y INT        seed occurrence for the 3rd round seeding [%ld]\n", (long)opt->max_mem_intv);
-//		fprintf(stderr, "       -s INT        look for internal seeds inside a seed with less than INT occ [%d]\n", opt->split_width);
+		fprintf(stderr, "       -d INT        off-diagonal X-dropoff [%d]\n", opt->zdrop);
+		fprintf(stderr, "       -r FLOAT      look for internal seeds inside a seed longer than {-k} * FLOAT [%g]\n", opt->split_factor);
+		fprintf(stderr, "       -y INT        seed occurrence for the 3rd round seeding [%ld]\n", (long)opt->max_mem_intv);
+		fprintf(stderr, "       -s INT        look for internal seeds inside a seed with less than INT occ [%d]\n", opt->split_width);
 		fprintf(stderr, "       -c INT        skip seeds with more than INT occurrences [%d]\n", opt->max_occ);
-		//fprintf(stderr, "       -D FLOAT      drop chains shorter than FLOAT fraction of the longest overlapping chain [%.2f]\n", opt->drop_ratio);
+		fprintf(stderr, "       -D FLOAT      drop chains shorter than FLOAT fraction of the longest overlapping chain [%.2f]\n", opt->drop_ratio);
 		fprintf(stderr, "       -W INT        discard a chain if seeded bases shorter than INT [0]\n");
-		//fprintf(stderr, "       -m INT        perform at most INT rounds of mate rescues for each read [%d]\n", opt->max_matesw);
-		//fprintf(stderr, "       -S            skip mate rescue\n");
-		//fprintf(stderr, "       -P            skip pairing; mate rescue performed unless -S also in use\n");
+		fprintf(stderr, "       -m INT        perform at most INT rounds of mate rescues for each read [%d]\n", opt->max_matesw);
+		fprintf(stderr, "       -S            skip mate rescue\n");
+		fprintf(stderr, "       -P            skip pairing; mate rescue performed unless -S also in use\n");
 		fprintf(stderr, "\nScoring options:\n\n");
 		fprintf(stderr, "       -A INT        score for a sequence match, which scales options -TdBOELU unless overridden [%d]\n", opt->a);
 		fprintf(stderr, "       -B INT        penalty for a mismatch [%d]\n", opt->b);
 		fprintf(stderr, "       -O INT[,INT]  gap open penalties for deletions and insertions [%d,%d]\n", opt->o_del, opt->o_ins);
 		fprintf(stderr, "       -E INT[,INT]  gap extension penalty; a gap of size k cost '{-O} + {-E}*k' [%d,%d]\n", opt->e_del, opt->e_ins);
-		//fprintf(stderr, "       -L INT[,INT]  penalty for 5'- and 3'-end clipping [%d,%d]\n", opt->pen_clip5, opt->pen_clip3);
-		//fprintf(stderr, "       -U INT        penalty for an unpaired read pair [%d]\n\n", opt->pen_unpaired);
-		//fprintf(stderr, "       -x STR        read type. Setting -x changes multiple parameters unless overriden [null]\n");
-		//fprintf(stderr, "                     pacbio: -k17 -W40 -r10 -A1 -B1 -O1 -E1 -L0  (PacBio reads to ref)\n");
-		//fprintf(stderr, "                     ont2d: -k14 -W20 -r10 -A1 -B1 -O1 -E1 -L0  (Oxford Nanopore 2D-reads to ref)\n");
-		//fprintf(stderr, "                     intractg: -B9 -O16 -L5  (intra-species contigs to ref)\n");
+		fprintf(stderr, "       -L INT[,INT]  penalty for 5'- and 3'-end clipping [%d,%d]\n", opt->pen_clip5, opt->pen_clip3);
+		fprintf(stderr, "       -U INT        penalty for an unpaired read pair [%d]\n\n", opt->pen_unpaired);
+		fprintf(stderr, "       -x STR        read type. Setting -x changes multiple parameters unless overriden [null]\n");
+		fprintf(stderr, "                     pacbio: -k17 -W40 -r10 -A1 -B1 -O1 -E1 -L0  (PacBio reads to ref)\n");
+		fprintf(stderr, "                     ont2d: -k14 -W20 -r10 -A1 -B1 -O1 -E1 -L0  (Oxford Nanopore 2D-reads to ref)\n");
+		fprintf(stderr, "                     intractg: -B9 -O16 -L5  (intra-species contigs to ref)\n");
 		fprintf(stderr, "\nInput/output options:\n\n");
 		//fprintf(stderr, "       -p            smart pairing (ignoring in2.fq)\n");
 		fprintf(stderr, "       -R STR        read group header line such as '@RG\\tID:foo\\tSM:bar' [null]\n");
@@ -300,8 +293,7 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "                     2(local alignment) [%d],\n\n", opt->dp_type);
 		fprintf(stderr, "       -o            Use SSE2 optimized local alignment or banded BWA-MEM seed extension depending upon \"-e\" option.\n");
 		fprintf(stderr, "                     Global alignment is not optimized.\n\n");
-		fprintf(stderr, "       -g INT        If INT = 1, use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM[%d]\n", 0);
-		fprintf(stderr, "       -z        	  Use AVX2 optimized local alignment in place of SSE2,\n");
+		fprintf(stderr, "       -g            Use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM\n");
 		fprintf(stderr, "       -F            Use Shifted Hamming distance seed filter,\n");
 		fprintf(stderr, "       -f STR        Use STR as the name of the file to append the execution time,[%s]\n", "run_exec_time.txt");
 		fprintf(stderr, "       -l INT        Must specify a read length for reporting execution time[%d]\n", 0);
@@ -407,75 +399,91 @@ int gase_aln(int argc, char *argv[])
 
 int main_fastmap(int argc, char *argv[])
 {
-	int c, i, min_iwidth = 20, min_len = 17, print_seq = 0, min_intv = 1, max_len = INT_MAX;
+	int c, i, print_seq = 0;
 	uint64_t max_intv = 0;
 	kseq_t *seq;
 	bwtint_t k;
 	gzFile fp;
-	smem_i *itr;
-	const bwtintv_v *a;
+	smem_aux_t *a;
 	bwaidx_t *idx;
+	mem_opt_t *opt;
+	opt = mem_opt_init();
 
-	while ((c = getopt(argc, argv, "w:l:pi:I:L:")) >= 0) {
+	while ((c = getopt(argc, argv, "k:r:y:s:c:u:J:gp")) >= 0) {
 		switch (c) {
+			case 'k': opt->min_seed_len = atoi(optarg); break;
+			case 'r': opt->split_factor = atoi(optarg); break;
+			case 'y': opt->max_mem_intv = atoi(optarg); break;
+			case 's': opt->split_width = atoi(optarg); break;
+			case 'c': opt->max_occ = atoi(optarg); break;
+			case 'u': opt->seed_type = atoi(optarg); break;
+			case 'J': opt->seed_intv = atoi(optarg); break;
+			case 'g': opt->re_seed = 1; break;
 			case 'p': print_seq = 1; break;
-			case 'w': min_iwidth = atoi(optarg); break;
-			case 'l': min_len = atoi(optarg); break;
-			case 'i': min_intv = atoi(optarg); break;
-			case 'I': max_intv = atol(optarg); break;
-			case 'L': max_len  = atoi(optarg); break;
-		    default: return 1;
+		   default: return 1;
 		}
 	}
-	if (optind + 1 >= argc) {
-		fprintf(stderr, "\n");
-		fprintf(stderr, "Usage:   bwa fastmap [options] <idxbase> <in.fq>\n\n");
-		fprintf(stderr, "Options: -l INT    min SMEM length to output [%d]\n", min_len);
-		fprintf(stderr, "         -w INT    max interval size to find coordiantes [%d]\n", min_iwidth);
-		fprintf(stderr, "         -i INT    min SMEM interval size [%d]\n", min_intv);
-		fprintf(stderr, "         -L INT    max MEM length [%d]\n", max_len);
-		fprintf(stderr, "         -I INT    stop if MEM is longer than -l with a size less than INT [%ld]\n", (long)max_intv);
-		fprintf(stderr, "\n");
-		return 1;
-	}
+	if (optind + 1 >= argc || optind + 3 < argc) {
+	      fprintf(stderr, "\n");
+	      fprintf(stderr, "Usage: gase fastmap [options] <ref.fasta> <reads.fq> \n\n");
+	      fprintf(stderr, "Algorithm options:\n\n");
+	      fprintf(stderr, "       -k INT        minimum seed length. For fixed length seeds seed_length = INT [%d]\n", opt->min_seed_len);
+	      fprintf(stderr, "       -r FLOAT      look for internal seeds inside a seed longer than {-k} * FLOAT (ONLY FOR ALL SMEM RE-SEEDING) [%g]\n", opt->split_factor);
+	      fprintf(stderr, "       -y INT        seed occurrence for the 3rd round seeding (ONLY FOR ALL SMEM RE-SEEDING) [%ld]\n", (long)opt->max_mem_intv);
+	      fprintf(stderr, "       -s INT        look for internal seeds inside a seed with less than INT occ (ONLY FOR ALL SMEM RE-SEEDING)[%d]\n", opt->split_width);
+	      fprintf(stderr, "       -c INT        skip seeds with more than INT occurrences [%d]\n", opt->max_occ);
+	      fprintf(stderr, "       -u INT        Seed type. Possible options: 1(all-SMEM), 2(fixed length seeds with no mismatch),\n");
+	      fprintf(stderr, "                     3(nov-SMEM), 4(fixed length seeds with at most 1 mismatch) [%d],\n\n", opt->seed_type);
+	      fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]\n\n", opt->seed_intv);
+	      fprintf(stderr, "       -g            Use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM\n");
+	      fprintf(stderr, "       -p            Print the read ");
+	      //fprintf(stderr, "       -I FLOAT[,FLOAT[,INT[,INT]]]\n");
+	      //fprintf(stderr, "                     specify the mean, standard deviation (10%% of the mean if absent), max\n");
+	      //fprintf(stderr, "                     (4 sigma from the mean if absent) and min of the insert size distribution.\n");
+	      //fprintf(stderr, "                     FR orientation only. [inferred]\n");
+	      fprintf(stderr, "\n");
+	      //fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
+	      fprintf(stderr, "\n");
+	      free(opt);
+	      return 1;
+	   }
 
 	fp = xzopen(argv[optind + 1], "r");
 	seq = kseq_init(fp);
 	if ((idx = bwa_idx_load(argv[optind], BWA_IDX_BWT|BWA_IDX_BNS)) == 0) return 1;
-	itr = smem_itr_init(idx->bwt);
-	smem_config(itr, min_intv, max_len, max_intv);
+	a = smem_aux_init();
+	//smem_config(itr, min_intv, max_len, max_intv);
 	while (kseq_read(seq) >= 0) {
-		err_printf("SQ\t%s\t%ld", seq->name.s, seq->seq.l);
-		if (print_seq) {
-			err_putchar('\t');
-			err_puts(seq->seq.s);
-		} else err_putchar('\n');
-		for (i = 0; i < seq->seq.l; ++i)
-			seq->seq.s[i] = nst_nt4_table[(int)seq->seq.s[i]];
-		smem_set_query(itr, seq->seq.l, (uint8_t*)seq->seq.s);
-		while ((a = smem_next(itr)) != 0) {
-			for (i = 0; i < a->n; ++i) {
-				bwtintv_t *p = &a->a[i];
-				if ((uint32_t)p->info - (p->info>>32) < min_len) continue;
-				err_printf("EM\t%d\t%d\t%ld", (uint32_t)(p->info>>32), (uint32_t)p->info, (long)p->x[2]);
-				if (p->x[2] <= min_iwidth) {
-					for (k = 0; k < p->x[2]; ++k) {
-						bwtint_t pos;
-						int len, is_rev, ref_id;
-						len  = (uint32_t)p->info - (p->info>>32);
-						pos = bns_depos(idx->bns, bwt_sa(idx->bwt, p->x[0] + k), &is_rev);
-						if (is_rev) pos -= len - 1;
-						bns_cnt_ambi(idx->bns, pos, len, &ref_id);
-						err_printf("\t%s:%c%ld", idx->bns->anns[ref_id].name, "+-"[is_rev], (long)(pos - idx->bns->anns[ref_id].offset) + 1);
-					}
-				} else err_puts("\t*");
-				err_putchar('\n');
-			}
-		}
-		err_puts("//");
+	   err_printf("SQ\t%s\t%ld", seq->name.s, seq->seq.l);
+	   if (print_seq) {
+	      err_putchar('\t');
+	      err_puts(seq->seq.s);
+	   } else err_putchar('\n');
+	   for (i = 0; i < seq->seq.l; ++i)
+	      seq->seq.s[i] = nst_nt4_table[(int)seq->seq.s[i]];
+	   //smem_set_query(itr, seq->seq.l, (uint8_t*)seq->seq.s);
+	   mem_collect_intv(opt, idx->bwt, seq->seq.l, (uint8_t*)seq->seq.s, a);
+	   for (i = 0; i < a->mem.n; ++i) {
+	      bwtintv_t *p = &a->mem.a[i];
+	      if ((uint32_t)p->info - (p->info>>32) < opt->min_seed_len) continue;
+	      err_printf("EM\t%d\t%d\t%ld", (uint32_t)(p->info>>32), (uint32_t)p->info, (long)p->x[2]);
+	      if (p->x[2] <= opt->max_occ) {
+	         for (k = 0; k < p->x[2]; ++k) {
+	            bwtint_t pos;
+	            int len, is_rev, ref_id;
+	            len  = (uint32_t)p->info - (p->info>>32);
+	            pos = bns_depos(idx->bns, bwt_sa(idx->bwt, p->x[0] + k), &is_rev);
+	            if (is_rev) pos -= len - 1;
+	            bns_cnt_ambi(idx->bns, pos, len, &ref_id);
+	            err_printf("\t%s:%c%ld", idx->bns->anns[ref_id].name, "+-"[is_rev], (long)(pos - idx->bns->anns[ref_id].offset) + 1);
+	         }
+	      } else err_puts("\t*");
+	      err_putchar('\n');
+	   }
+	   err_puts("//");
 	}
 
-	smem_itr_destroy(itr);
+	smem_aux_destroy(a);
 	bwa_idx_destroy(idx);
 	kseq_destroy(seq);
 	err_gzclose(fp);

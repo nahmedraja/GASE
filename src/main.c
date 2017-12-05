@@ -32,13 +32,13 @@ static int usage()
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Program: GASE (Generic Aligner for Seed-and-Extend)\n");
 	fprintf(stderr, "Version: %s\n", PACKAGE_VERSION);
-	fprintf(stderr, "GASE is an extension of BWA (version 0.7.13) which is developed by Heng Li.\n");
+	fprintf(stderr, "GASE is an extension of BWA (version 0.7.13) developed by Heng Li.\n");
 	fprintf(stderr, "Contact: Nauman Ahmed <n.ahmed@tudelft.nl>\n\n");
 	fprintf(stderr, "Usage:   gase <command> [options]\n\n");
 	fprintf(stderr, "Command: index         index sequences in the FASTA format\n");
 	fprintf(stderr, "         gase_aln           GASE algorithm\n");
-	/*fprintf(stderr, "         fastmap       identify super-maximal exact matches\n");
-	fprintf(stderr, "         pemerge       merge overlapping paired ends (EXPERIMENTAL)\n");
+	fprintf(stderr, "         fastmap       identify seeds\n");
+	/*fprintf(stderr, "         pemerge       merge overlapping paired ends (EXPERIMENTAL)\n");
 	fprintf(stderr, "         aln           gapped/ungapped alignment\n");
 	fprintf(stderr, "         samse         generate alignment (single ended)\n");
 	fprintf(stderr, "         sampe         generate alignment (paired ended)\n");
@@ -78,9 +78,9 @@ int main(int argc, char *argv[])
 	else if (strcmp(argv[1], "sampe") == 0) ret = bwa_sai2sam_pe(argc-1, argv+1);
 	else if (strcmp(argv[1], "bwtsw2") == 0) ret = bwa_bwtsw2(argc-1, argv+1);
 	else if (strcmp(argv[1], "dbwtsw") == 0) ret = bwa_bwtsw2(argc-1, argv+1);
-	else if (strcmp(argv[1], "bwasw") == 0) ret = bwa_bwtsw2(argc-1, argv+1);
+	else if (strcmp(argv[1], "bwasw") == 0) ret = bwa_bwtsw2(argc-1, argv+1);*/
 	else if (strcmp(argv[1], "fastmap") == 0) ret = main_fastmap(argc-1, argv+1);
-	else if (strcmp(argv[1], "mem") == 0) ret = main_mem(argc-2, argv+2, fresult);
+	/*else if (strcmp(argv[1], "mem") == 0) ret = main_mem(argc-2, argv+2, fresult);
 	else if (strcmp(argv[1], "shm") == 0) ret = main_shm(argc-1, argv+1);
 	else if (strcmp(argv[1], "pemerge") == 0) ret = main_pemerge(argc-1, argv+1);
 	else if (strcmp(argv[1], "maxk") == 0) ret = main_maxk(argc-1, argv+1);*/

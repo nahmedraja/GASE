@@ -86,8 +86,7 @@ mem_opt_t *mem_opt_init() {
    o->dp_type = 0;
    o->opt_ext = 0;
    o->re_seed = 0;
-   o->use_avx2 = 0;
-   o->read_len = 0;
+   o->read_len = 100;
    o->shd_filter = 0;
    bwa_fill_scmat(o->a, o->b, o->mat);
    return o;
@@ -100,11 +99,7 @@ mem_opt_t *mem_opt_init() {
 #define intv_lt(a, b) ((a).info < (b).info)
 KSORT_INIT(mem_intv, bwtintv_t, intv_lt)
 
-typedef struct {
-   bwtintv_v mem, mem1, *tmpv[2];
-} smem_aux_t;
-
-static smem_aux_t *smem_aux_init() {
+smem_aux_t *smem_aux_init() {
    smem_aux_t *a;
    a = calloc(1, sizeof(smem_aux_t));
    a->tmpv[0] = calloc(1, sizeof(bwtintv_v));
@@ -112,7 +107,7 @@ static smem_aux_t *smem_aux_init() {
    return a;
 }
 
-static void smem_aux_destroy(smem_aux_t *a) {
+void smem_aux_destroy(smem_aux_t *a) {
    free(a->tmpv[0]->a);
    free(a->tmpv[0]);
    free(a->tmpv[1]->a);
@@ -159,7 +154,7 @@ typedef struct {
    int bid;
 } bwt_width_t;
 
-static void mem_collect_intv(mem_opt_t *opt, const bwt_t *bwt, int len, const uint8_t *seq, smem_aux_t *a) {
+void mem_collect_intv(const mem_opt_t *opt, const bwt_t *bwt, int len, const uint8_t *seq, smem_aux_t *a) {
    int i, k, x = 0, old_n, max, max_i;
    int start_width = 1;
    int split_len = (int) (opt->min_seed_len * opt->split_factor + .499);
@@ -823,8 +818,7 @@ int mem_seed_sw(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, i
       return -1; // the seed seems good enough; no need to do SW
 
    rseq = bns_fetch_seq(bns, pac, &rb, mid, &re, &rid);
-   x = ksw_align2(qe - qb, (uint8_t*) query + qb, re - rb, rseq, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0,
-         opt->use_avx2);
+   x = ksw_align2(qe - qb, (uint8_t*) query + qb, re - rb, rseq, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0);
    free(rseq);
    return x.score;
 }
@@ -1218,8 +1212,7 @@ void mem_chain2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
                rs[j] = rseq[i];
             }
             if (opt->opt_ext) {
-               x = ksw_align2(l_query, query, rseq_end - rseq_beg, rs, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0,
-                     opt->use_avx2);
+               x = ksw_align2(l_query, (uint8_t*)query, rseq_end - rseq_beg, rs, 5, opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, KSW_XSTART, 0);
                if (x.score != -1 && x.te != -1 && x.qe != -1 && x.qb != -1 && x.tb != -1) {
                   a->score = x.score, a->qb = x.qb, a->qe = x.qe + 1, a->rb = x.tb + rseq_beg + rmax[0], a->re = x.te + rseq_beg + rmax[0] + 1, a->truesc =
                         x.score;
