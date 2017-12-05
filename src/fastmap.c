@@ -288,7 +288,7 @@ int gase_aln(int argc, char *argv[])
 		fprintf(stderr, "       -Y            use soft clipping for supplementary alignments\n");
 		fprintf(stderr, "       -u INT        Seed type. Possible options: 1(all-SMEM), 2(fixed length seeds with no mismatch),\n");
 		fprintf(stderr, "                     3(nov-SMEM), 4(fixed length seeds with at most 1 mismatch) [%d],\n\n", opt->seed_type);
-		fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]\n\n", opt->seed_intv);
+		fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]. Seed interval is the distance between the read start positions of two consecutive seeds.\n", opt->seed_intv);
 		fprintf(stderr, "       -e INT        Algorithm in the extension stage. Possible options 0(BWA-MEM seed extension with all heuristics), 1(global alignment),\n");
 		fprintf(stderr, "                     2(local alignment) [%d],\n\n", opt->dp_type);
 		fprintf(stderr, "       -o            Use SSE2 optimized local alignment or banded BWA-MEM seed extension depending upon \"-e\" option.\n");
@@ -434,7 +434,7 @@ int main_fastmap(int argc, char *argv[])
 	      fprintf(stderr, "       -c INT        skip seeds with more than INT occurrences [%d]\n", opt->max_occ);
 	      fprintf(stderr, "       -u INT        Seed type. Possible options: 1(all-SMEM), 2(fixed length seeds with no mismatch),\n");
 	      fprintf(stderr, "                     3(nov-SMEM), 4(fixed length seeds with at most 1 mismatch) [%d],\n", opt->seed_type);
-	      fprintf(stderr, "       -J INT        Seed interval for fixed length seeds [%d]\n", opt->seed_intv);
+	      fprintf(stderr, "       -J INT        Seed interval for fixed length seeds. Seed interval is the distance between the read start positions of two consecutive seeds. [%d]\n", opt->seed_intv);
 	      fprintf(stderr, "       -g            Use BWA-MEM like reseeding with all-SMEM. For now reseeding is only available with all-SMEM\n");
 	      fprintf(stderr, "       -p            Print the read\n");
 	      //fprintf(stderr, "       -I FLOAT[,FLOAT[,INT[,INT]]]\n");
