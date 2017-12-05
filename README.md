@@ -7,9 +7,7 @@ GASE is a DNA read aligner, developed for measuring the mapping accuracy and exe
 3. Fixed length seeds with no mismatch.
 4. Fixed length seeds with at most 1 mismatch. 
 
-Currently re-seeding is only available for all-SMEM. THe reseeding algorith is same as in BWA-MEM
-
-Three different kind of extension techniques can be used:
+Currently re-seeding is only available for all-SMEM. The reseeding algorithm is same as in BWA-MEM. Three different kind of seed extension techniques can be used:
 
 1. Global alignment
 2. Local alignment
