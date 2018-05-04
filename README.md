@@ -1,6 +1,6 @@
 GASE - Generic Aligner for *Seed-and-Extend*
 -----------------------------------------
-GASE is a DNA read aligner, developed for measuring the mapping accuracy and execution time of different combinations of seeding and extension techniques. GASE is implemented by extending BWA (version 0.7.13) developed by Heng Li. Currently, GASE supports 4 kinds of seeding techniques:
+GASE is a DNA read aligner that allows to use different combinations of seeding and extension algorithms. GASE is implemented by extending BWA (version 0.7.13) developed by Heng Li. Currently, GASE supports 4 kinds of seeding techniques:
 
 1. All the SMEMs (super-maximal exact matches) in a DNA read (all-SMEM). This is same as SMEM seeding  in BWA-MEM.
 2. Only the non-overlapping SMEMs (nov-SMEM). 
